@@ -5,7 +5,9 @@ import { PAGES, isPageId, useUi, type PageId } from '../store';
 import { LifecycleBadge } from '../status';
 import { Button } from '../primitives';
 import { pageTransition } from '../motion';
-import { formatClock, useSampleClock, useSampleTicker } from '../preview/sample';
+import { formatClock } from '../format';
+import { useSim, useSimWorker } from '../sim/simClient';
+import { startHistory } from '../sim/history';
 import { Mark, Wordmark } from './Brand';
 import { TestBench } from './TestBench';
 import { LiveTwinPage } from '../pages/LiveTwin';
@@ -14,6 +16,7 @@ import { VibrationPage } from '../pages/Vibration';
 import { MathPage } from '../pages/Math';
 import { ValidationPage } from '../pages/Validation';
 import { ReportPage } from '../pages/Report';
+import { DebugPage } from '../pages/Debug';
 
 const VIEWS: Record<PageId, () => JSX.Element> = {
   live: LiveTwinPage,
@@ -22,6 +25,7 @@ const VIEWS: Record<PageId, () => JSX.Element> = {
   math: MathPage,
   validation: ValidationPage,
   report: ReportPage,
+  debug: DebugPage,
 };
 
 /** Keeps the page in sync with location.hash so views are linkable (#trends, #math …). */
@@ -42,20 +46,36 @@ function useHashRoute() {
   return page;
 }
 
+/** Real simulated time from the worker. */
 function SimClock() {
-  const t = useSampleClock((s) => s.t);
-  const warp = useUi((s) => s.warp);
+  const t = useSim((s) => s.snapshot?.telemetry.t ?? 0);
+  const warp = useSim((s) => s.snapshot?.warp ?? 1);
+  const paused = useSim((s) => s.snapshot?.paused ?? false);
   return (
     <span className="num hidden text-sm text-fg-2 md:inline">
-      T+ <b className="text-fg">{formatClock(t)}</b> · {warp}×
+      T+ <b className="text-fg">{formatClock(t)}</b> · {paused ? 'paused' : `${warp}×`}
+    </span>
+  );
+}
+
+function SimLifecycle() {
+  const lifecycle = useSim((s) => s.snapshot?.lifecycle ?? 'OFF');
+  const transient = useSim((s) => s.snapshot?.transient ?? false);
+  const firing = lifecycle === 'WARMUP' || lifecycle === 'RUNNING';
+  return (
+    <span className="hidden sm:inline-block">
+      <LifecycleBadge
+        state={lifecycle}
+        sub={firing ? (transient ? 'TRANSIENT' : 'STEADY') : undefined}
+      />
     </span>
   );
 }
 
 export function AppShell() {
-  useSampleTicker();
+  useSimWorker();
+  startHistory();
   const page = useHashRoute();
-  const engineOn = useUi((s) => s.engineOn);
   const set = useUi((s) => s.set);
   const View = VIEWS[page];
 
@@ -99,18 +119,7 @@ export function AppShell() {
             </nav>
 
             <div className="ml-auto flex h-16 items-center gap-4">
-              <span
-                className="hidden border border-line px-2 py-1 font-mono text-label tracking-[0.1em] text-fg-3 xl:inline"
-                title="Design preview: values are sample data until the simulator lands"
-              >
-                SAMPLE DATA
-              </span>
-              <span className="hidden sm:inline-block">
-                <LifecycleBadge
-                  state={engineOn ? 'RUNNING' : 'OFF'}
-                  sub={engineOn ? 'STEADY' : undefined}
-                />
-              </span>
+              <SimLifecycle />
               <SimClock />
               <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
                 Test bench

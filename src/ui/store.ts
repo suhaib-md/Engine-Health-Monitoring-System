@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-/** UI-only state: navigation, test-bench controls. Simulation state arrives from the worker in Phase 2. */
+/** UI-only state: navigation and test-bench controls. Simulation state comes from the worker (sim/simClient.ts). */
 
 export const PAGES = [
   { id: 'live', label: 'Live Twin' },
@@ -9,6 +9,7 @@ export const PAGES = [
   { id: 'math', label: 'Math' },
   { id: 'validation', label: 'Validation' },
   { id: 'report', label: 'Report' },
+  { id: 'debug', label: 'Debug' },
 ] as const;
 
 export type PageId = (typeof PAGES)[number]['id'];
@@ -19,21 +20,22 @@ export type Warp = 1 | 10 | 60;
 export type FanMode = 'auto' | 'on' | 'off';
 export type FaultMode = 'gradual' | 'instant';
 
+/** Fault catalogue. `phase` = the build phase that makes it injectable; `gain` = health lost per unit severity. */
 export const FAULTS = [
-  { id: 'oilPump', label: 'Oil-pump wear' },
-  { id: 'cooling', label: 'Cooling degradation' },
-  { id: 'misfire3', label: 'Cylinder 3 misfire' },
-  { id: 'bearing', label: 'Bearing wear' },
-  { id: 'alternator', label: 'Alternator fault' },
-  { id: 'coolantSensor', label: 'Coolant sensor spike' },
+  { id: 'oilPump', label: 'Oil-pump wear', phase: 3, gain: 0.75 },
+  { id: 'cooling', label: 'Cooling degradation', phase: 3, gain: 0.8 },
+  { id: 'misfire3', label: 'Cylinder 3 misfire', phase: 7, gain: 1 },
+  { id: 'bearing', label: 'Bearing wear', phase: 9, gain: 1 },
+  { id: 'alternator', label: 'Alternator fault', phase: 9, gain: 1 },
+  { id: 'coolantSensor', label: 'Coolant sensor spike', phase: 9, gain: 1 },
 ] as const;
+export const AVAILABLE_PHASE = 4;
 
 export type FaultId = (typeof FAULTS)[number]['id'];
 
 interface UiState {
   page: PageId;
   benchOpen: boolean;
-  engineOn: boolean;
   warp: Warp;
   fan: FanMode;
   targetRpm: number;
@@ -54,7 +56,6 @@ const initialPage = (): PageId => {
 export const useUi = create<UiState>((set) => ({
   page: initialPage(),
   benchOpen: false,
-  engineOn: true,
   warp: 60,
   fan: 'auto',
   targetRpm: 3000,

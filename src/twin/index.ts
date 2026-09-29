@@ -1,2 +1,2 @@
-// Blind healthy reference model: same physics, all health = 1. Phase 2.
-export {};
+// Healthy reference: same physics, all health = 1, driven only by telemetry.
+export * from './twin';

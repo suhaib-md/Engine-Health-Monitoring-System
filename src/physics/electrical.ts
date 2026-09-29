@@ -9,11 +9,14 @@ export function alternatorFactor(rpm: number, p: EngineProfile = PROFILE) {
 /**
  * Bus voltage (draft §14):
  *   V = V_bat + H_alt · g(N) · (V_reg − V_bat) − ΔV_load
- * With the engine stopped the alternator gives nothing and the bus sits at battery voltage.
+ * With the engine stopped the alternator gives nothing and the bus sits at battery voltage;
+ * below 400 rpm (cranking) the starter pulls it down to 10.5 V.
  */
 export function busVoltage_V(rpm: number, alternatorHealth: number, p: EngineProfile = PROFILE) {
   const e = p.electrical;
   if (rpm <= 0) return e.batteryV;
+  // Starter motor draw while cranking (draft §32, Q-20)
+  if (rpm < e.crankingBelow_rpm) return e.crankingV;
   return (
     e.batteryV +
     alternatorHealth * alternatorFactor(rpm, p) * (e.regulatorV - e.batteryV) -

@@ -1,2 +1,2 @@
-// Telemetry sources: simSource, replaySource (CSV), serialSource (ESP32 / OBD-II). Phase 2+.
-export {};
+// Telemetry sources: simSource now; replaySource (CSV) and serialSource (ESP32 / OBD-II) in Phase 13.
+export * from './simSource';

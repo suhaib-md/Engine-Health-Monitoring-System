@@ -20,6 +20,11 @@ export interface Telemetry {
   oilPressBar: number | null;
   /** V */
   busV: number | null;
+  /**
+   * Radiator fan command (an actuator state the ECU knows, not a sensor reading).
+   * Lets the Twin follow a forced fan instead of flagging it as a cooling fault. null = unknown.
+   */
+  fanOn?: boolean | null;
   /** rpm per 0.5° crank step, last 16 revolutions */
   crankSpeedWindow?: Float32Array;
   /** m/s², same crank-angle window */

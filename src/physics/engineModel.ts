@@ -94,7 +94,11 @@ export function evaluateEngine(
 
   const thermostat = thermostatOpening(state.coolant_C, p);
   const ua = radiatorUA_WperK(health.cooling, thermostat, state.fanOn, p);
-  const qRad = radiatorHeat_W(ua, state.coolant_C, op.ambient_C);
+  // A parked engine still loses heat by natural convection (Q-30). While running this path is
+  // already inside the review's coolant heat fraction, so it is only added when stopped.
+  const qRad =
+    radiatorHeat_W(ua, state.coolant_C, op.ambient_C) +
+    (running ? 0 : p.cooling.parkedLoss_WperK * (state.coolant_C - op.ambient_C));
 
   return {
     omega_radps: omega,
@@ -136,16 +140,21 @@ export function evaluateEngine(
   };
 }
 
-/** One explicit-Euler step of the thermal states (dt in simulated seconds), then the fan update. */
+/**
+ * One explicit-Euler step of the thermal states (dt in simulated seconds), then the fan update.
+ * `fanOverride` forces the fan (test-bench ON/OFF, or the Twin following the measured fan state);
+ * undefined = automatic thermo-switch.
+ */
 export function stepThermal(
   state: ThermalState,
   op: OperatingPoint,
   dt: number,
   health: HealthFactors = HEALTHY,
   p: EngineProfile = PROFILE,
+  fanOverride?: boolean,
 ): ThermalState {
   const out = evaluateEngine(state, op, health, p);
   const coolant_C = state.coolant_C + out.coolantRate_Kps * dt;
   const oil_C = state.oil_C + out.oilRate_Kps * dt;
-  return { coolant_C, oil_C, fanOn: nextFanState(state.fanOn, coolant_C, p) };
+  return { coolant_C, oil_C, fanOn: fanOverride ?? nextFanState(state.fanOn, coolant_C, p) };
 }

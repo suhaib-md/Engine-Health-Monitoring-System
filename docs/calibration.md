@@ -81,3 +81,74 @@ Side effect to know about: at **hot idle** the steady oil temperature is about 8
 | --- | --- | --- |
 | H_pump = 1 − 0.75 S | FIXED | draft §28 (Q-05) |
 | H_cool = 1 − 0.8 S | PROVISIONAL | The draft's 0.7 can't reach the review's H_cool = 0.25 test (Q-04) |
+
+---
+
+## Phase 2 additions (2026-09-29)
+
+### Lifecycle (draft §31–32, Q-20)
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Cranking 250 rpm for 1.0 s | PROVISIONAL | Typical starter speed. Long enough to be visible on the Debug page |
+| Starter sag: bus 10.5 V below 400 rpm | PROVISIONAL | In the shared physics, so Plant and Twin agree (no false residual at start). Side effect: the bus also reads 10.5 V for about 0.5 s while a shutdown coasts through 400 rpm (Q-31) |
+| Speed lag τ = 0.6 s toward target, shutdown decay τ = 0.4 s | PROVISIONAL | The slow model has no crank dynamics yet (Phase 7). Speed reaches target within a few seconds |
+| TRANSIENT when \|rpm − target\| > 100 rpm | PROVISIONAL | Draft §32: short transients must not become faults |
+| WARMUP ↔ RUNNING at the thermostat opening point (82 °C) | DERIVED | Draft §32: "thermostat initially restricted" |
+
+### Parked engine (Q-30)
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Natural convection 25 W/K, **only while stopped** | PROVISIONAL | Without it a stopped engine below 82 °C never cools (the thermostat is shut, and Q-06 left out ambient loss). Applied only at rpm = 0, so every golden number is unchanged. A hot engine loses more than 10 °C in the first parked hour |
+
+### Sensor noise σ (draft §15; demo calibration)
+
+| Channel | σ | Reason |
+| --- | --- | --- |
+| rpm | 5 rpm | Crank sensor jitter at the slow-loop rate |
+| load | 0.004 | ECU-calculated value, lightly noisy |
+| ambient | 0.1 °C | |
+| coolant | 0.2 °C | Thermistor |
+| oil temp | 0.3 °C | Thermocouple |
+| oil pressure | 0.03 bar | 0–100 psi transducer via a 16-bit ADC |
+| bus voltage | 0.03 V | |
+
+Faults per channel: bias, drift (per simulated s), stuck, one-sample spike, dropout (probability; returns `null`). rpm/load/ambient are required fields in Telemetry, so they don't drop out.
+
+### Phase 2 result
+
+Healthy residuals over 60 s at each operating point (idle, 3,000/80, 4,000/190, 6,000 full load): mean within ±0.08 σ, spread 0.95–1.07 σ on every channel. The Twin tracks the healthy Plant to within sensor noise. The idle warm-up takes 25.2 s of wall time at 60×. One simulated hour computes in about 0.2 s.
+
+
+---
+
+## Phase 3 additions: faults & analytics (2026-09-29)
+
+Code: [src/analytics/config.ts](../src/analytics/config.ts). All PROVISIONAL demo calibration unless marked.
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Gradual fault onset: linear ramp to target over 120 simulated s | PROVISIONAL | Draft §19.1 linear progression. At 1× it's a visible two-minute decline; at 60× it takes 2 s |
+| D_lube = 1 − H_pump (weak pump → more friction heat) | PROVISIONAL | Draft §10.3/§28: low pressure → poorer film → hotter oil. Gives the "oil temp rising" symptom |
+| Analytics at 10 Hz (every 2nd slow step) | FIXED | CLAUDE.md timing table (5–10 Hz) |
+| Residual EMA τ = 3 s | PROVISIONAL | Filters sensor noise to about 0.13σ, so \|z\| > 2 is never noise. Adds about 3 s of lag |
+| σ_r = √(σ_sensor² + σ_model²), model floor: coolant 0.3 °C, oil 0.5 °C, pressure 0.05 bar, bus 0.05 V | PROVISIONAL | A real Twin is never perfect. The floor keeps thresholds honest for Phase 13 hardware |
+| Residual risk: 0 at 2σ, 1 at 6σ (Q-16) | PROVISIONAL | |
+| Pressure-ratio risk: 0 at 0.85, 1 at 0.50 of expected | PROVISIONAL | 15 % low starts to count; half pressure is certain |
+| Coolant residual rate: 0.5 → 3 K/min; pressure decay: 0.1 → 1 bar/min | PROVISIONAL | |
+| Absolute coolant limits 105 / 120 °C | FIXED | draft §43 prototype values |
+| **Oil pressure compared at the MEASURED oil temperature** | DERIVED | Draft §17.3 context normalisation. Removes cooling → lubrication cross-talk (Q-32). Verified: a severe cooling fault keeps the lube score < 0.3 |
+| Lube oil-temp symptom = oil residual − coolant residual | DERIVED | Oil hot *because* coolant is hot is not a lubrication symptom |
+| Hysteresis 0.30/5 s, 0.55/10 s, 0.85/5 s; clear at (enter − 0.15) for 20 s | FIXED + DERIVED | Draft §23 gives the entries and "WARNING clears < 0.40 for 20 s"; the same 0.15 margin is applied to every level |
+| Critical override held 2 s → CRITICAL | PROVISIONAL | Draft §22.2. The hold rejects a single bad sample |
+| Alerts armed only when rpm > 0.8·idle for ≥ 10 s | PROVISIONAL | Draft §31: low pressure with the engine stopped is normal |
+| Fault weights: draft §20.2, renormalised over available symptoms | FIXED + DERIVED | Cooling drops coolant level (not simulated); lube drops vibration (Phase 7). Fan symptom uses the telemetry fan command (Q-33) |
+
+### Phase 3 result
+
+- Healthy, 20 min with 8 operating-point changes: max evidence 0.027, never above NORMAL. Cold start and warm-up: never above NORMAL.
+- Pump health 0.4 at hot idle: lubrication 0.65–0.76, override CRITICAL (pressure 60 % low) within about 15 s.
+- Cooling health 0.5 at full load: cooling CRITICAL within 30 s; lubrication score stays 0.00.
+- Gradual cooling fault to 0.25 at 3,000 rpm: WARNING after 60 s, when coolant is only 2.3 °C above the Twin.
+- Pump health 0.85 (gradual): lube score 0.24 (weak). Catching this early is CUSUM's job (Phase 9).

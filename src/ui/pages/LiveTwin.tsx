@@ -1,36 +1,32 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useUi } from '../store';
-import { useSampleClock, sampleSnapshot } from '../preview/sample';
+import { isEngineRunning, sendSim, useSim } from '../sim/simClient';
 import { SectionHeader } from '../shell/Brand';
 import { Button, Panel } from '../primitives';
-import { AlertBadge } from '../status';
+import { AlertBadge, LifecycleBadge } from '../status';
 import { Gauge } from '../Gauge';
 import { HealthRing, SubsystemBars } from '../health';
 import { AlertItem, ExplanationCard } from '../diagnostics';
 import { PartCallout, PartPanel, ViewportChrome } from '../overlay3d';
-import { Reveal, Stagger, StaggerItem, drawerSpring } from '../motion';
+import { Reveal, Stagger, StaggerItem, drawerSpring, EASE_OUT } from '../motion';
+import { residualStatus } from '../format';
+import { scoreStatus } from '../tokens';
+import type { ResidualChannel } from '../../analytics';
 
 const PRESETS = ['front', 'cutaway', 'top', 'explode'];
+/** stable empty list: a selector must never return a fresh [] (it would re-render forever) */
+const NO_ALERTS: never[] = [];
 
 /**
- * Home view (Amendment A): three calm sections instead of one dense grid.
- *   01 hero: 3D viewport + health column
- *   02 signals: six gauges, three per row
- *   03 diagnosis: explanation card + alerts
+ * Home view (Amendment A), now live from the worker (Phase 4):
+ *   01 hero: viewport + health column   02 signals: gauges   03 diagnosis: card + alerts
+ * Each block subscribes to its own slice of the snapshot, so the page shell never re-renders per tick.
  */
 export function LiveTwinPage() {
-  const k = useSampleClock((s) => s.k);
-  const targetRpm = useUi((s) => s.targetRpm);
-  const engineOn = useUi((s) => s.engineOn);
   const set = useUi((s) => s.set);
-  const snap = sampleSnapshot(k, targetRpm, engineOn);
-  const [preset, setPreset] = useState('front');
-  const [part, setPart] = useState<string | null>(null);
-
   return (
     <div className="flex flex-col gap-20 lg:gap-24">
-      {/* 01 · Hero */}
       <section className="flex flex-col gap-10">
         <SectionHeader
           index="01"
@@ -42,156 +38,31 @@ export function LiveTwinPage() {
             </Button>
           }
         />
-
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
           <Reveal>
-            <ViewportChrome
-              preset={preset}
-              presets={PRESETS}
-              onPreset={setPreset}
-              className="h-[58vh] min-h-[420px]"
-            >
-              <div className="viewport-hatch absolute inset-0" />
-              <div className="num absolute inset-0 flex items-center justify-center text-xs text-fg-3">
-                three.js viewport · procedural I4 cutaway (Phase 5)
-              </div>
-              <div className="absolute left-[14%] top-[64%]">
-                <PartCallout
-                  name="Oil pump"
-                  health={46}
-                  status="warn"
-                  onClick={() => setPart('oilPump')}
-                />
-              </div>
-              <div className="absolute left-[56%] top-[26%]">
-                <PartCallout
-                  name="Radiator"
-                  health={98}
-                  status="ok"
-                  onClick={() => setPart('radiator')}
-                />
-              </div>
-              <div className="num absolute bottom-4 right-4 hidden border border-line bg-bg/85 px-3 py-2 text-label text-fg-3 sm:block">
-                θ <b className="text-fg">{String(snap.thetaDeg).padStart(3, '0')}°</b>
-              </div>
-
-              <AnimatePresence>
-                {part && (
-                  <motion.div
-                    key={part}
-                    className="absolute inset-y-4 right-4 z-10 w-[340px] max-w-[calc(100%-2rem)]"
-                    initial={{ x: 40, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: 40, opacity: 0 }}
-                    transition={drawerSpring}
-                  >
-                    {part === 'oilPump' ? (
-                      <PartPanel
-                        circuit="Lubrication circuit"
-                        part="Oil pump"
-                        health={46}
-                        status="warn"
-                        rows={[
-                          {
-                            sensor: 'Oil pressure',
-                            measured: '1.70',
-                            expected: '3.23',
-                            z: -7.6,
-                            zStatus: 'warn',
-                          },
-                          {
-                            sensor: 'Oil temp',
-                            measured: '108',
-                            expected: '101',
-                            z: 2.3,
-                            zStatus: 'watch',
-                          },
-                          {
-                            sensor: 'Vib RMS',
-                            measured: '4.1',
-                            expected: '2.0',
-                            z: 2.1,
-                            zStatus: 'watch',
-                          },
-                        ]}
-                        actions={
-                          <>
-                            <Button variant="ghost" onClick={() => set({ page: 'math' })}>
-                              Show the math
-                            </Button>
-                            <Button variant="secondary" onClick={() => setPart(null)}>
-                              Close
-                            </Button>
-                          </>
-                        }
-                      />
-                    ) : (
-                      <PartPanel
-                        circuit="Cooling circuit"
-                        part="Radiator"
-                        health={98}
-                        status="ok"
-                        rows={[
-                          {
-                            sensor: 'Coolant',
-                            measured: '93.4',
-                            expected: '93.0',
-                            z: 0.3,
-                            zStatus: 'ok',
-                          },
-                        ]}
-                        actions={
-                          <Button variant="secondary" onClick={() => setPart(null)}>
-                            Close
-                          </Button>
-                        }
-                      />
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </ViewportChrome>
+            <Viewport />
           </Reveal>
-
           <Stagger className="flex flex-col gap-6">
             <StaggerItem>
-              <Panel tab className="flex flex-col items-center gap-6 p-8 text-center">
-                <HealthRing score={snap.health} state={snap.alertState} size={176} />
-                <div className="flex flex-col items-center gap-3">
-                  <AlertBadge cls="WARNING" />
-                  <span className="text-h2 font-bold leading-tight">{snap.explanation.fault}</span>
-                  <span className="num text-xs text-fg-2">RUL 46–62 sim. h · high uncertainty</span>
-                </div>
-              </Panel>
+              <HealthPanel />
             </StaggerItem>
             <StaggerItem>
-              <Panel className="flex flex-col gap-5">
-                <span className="label">Subsystems</span>
-                <SubsystemBars items={snap.subsystems} />
-              </Panel>
+              <SubsystemsPanel />
             </StaggerItem>
           </Stagger>
         </div>
       </section>
 
-      {/* 02 · Signals */}
       <section className="flex flex-col gap-10">
         <SectionHeader
           size="section"
           index="02"
           title="Signals"
-          description="Six live channels. The white tick is the Twin's expected value; Δ is the residual."
+          description="Live channels. The white tick is the Twin's expected value; Δ is the residual, coloured once it leaves the noise band."
         />
-        <Stagger className="grid grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {snap.gauges.map(({ id, ...g }) => (
-            <StaggerItem key={id}>
-              <Gauge {...g} />
-            </StaggerItem>
-          ))}
-        </Stagger>
+        <Signals />
       </section>
 
-      {/* 03 · Diagnosis */}
       <section className="flex flex-col gap-10">
         <SectionHeader
           size="section"
@@ -201,18 +72,323 @@ export function LiveTwinPage() {
         />
         <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <Reveal>
-            <ExplanationCard e={snap.explanation} />
+            <Diagnosis />
           </Reveal>
           <Reveal className="flex flex-col gap-4">
             <span className="label">Alerts · newest first</span>
-            <motion.div layout className="flex flex-col gap-3">
-              {snap.alerts.map((a) => (
-                <AlertItem key={a.id} a={a} />
-              ))}
-            </motion.div>
+            <Alerts />
           </Reveal>
         </div>
       </section>
     </div>
+  );
+}
+
+/* ---------- hero ---------- */
+
+function Viewport() {
+  const [preset, setPreset] = useState('front');
+  const [part, setPart] = useState<'oilPump' | 'radiator' | null>(null);
+  const subs = useSim((s) => s.snapshot?.analytics?.subsystems);
+  const f = useSim((s) => s.snapshot?.analytics?.features);
+  const set = useUi((s) => s.set);
+  const lube = subs?.find((x) => x.id === 'lubrication')?.health ?? 100;
+  const thermal = subs?.find((x) => x.id === 'thermal')?.health ?? 100;
+
+  const row = (sensor: string, ch: ResidualChannel, d: number) => {
+    const c = f?.channels[ch];
+    return {
+      sensor,
+      measured: c?.measured == null ? '— —' : c.measured.toFixed(d),
+      expected: c ? c.expected.toFixed(d) : '—',
+      z: c?.z ?? 0,
+      zStatus: residualStatus(c?.z),
+    };
+  };
+
+  return (
+    <ViewportChrome
+      preset={preset}
+      presets={PRESETS}
+      onPreset={setPreset}
+      className="h-[58vh] min-h-[420px]"
+    >
+      <div className="viewport-hatch absolute inset-0" />
+      <div className="num absolute inset-0 flex items-center justify-center text-xs text-fg-3">
+        three.js viewport · procedural I4 cutaway (Phase 5)
+      </div>
+      <div className="absolute left-[14%] top-[64%]">
+        <PartCallout
+          name="Oil pump"
+          health={lube}
+          status={scoreStatus(lube)}
+          onClick={() => setPart('oilPump')}
+        />
+      </div>
+      <div className="absolute left-[56%] top-[26%]">
+        <PartCallout
+          name="Radiator"
+          health={thermal}
+          status={scoreStatus(thermal)}
+          onClick={() => setPart('radiator')}
+        />
+      </div>
+
+      <AnimatePresence>
+        {part && (
+          <motion.div
+            key={part}
+            className="absolute inset-y-4 right-4 z-10 w-[360px] max-w-[calc(100%-2rem)]"
+            initial={{ x: 40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 40, opacity: 0 }}
+            transition={drawerSpring}
+          >
+            <PartPanel
+              circuit={part === 'oilPump' ? 'Lubrication circuit' : 'Cooling circuit'}
+              part={part === 'oilPump' ? 'Oil pump' : 'Radiator'}
+              health={part === 'oilPump' ? lube : thermal}
+              status={scoreStatus(part === 'oilPump' ? lube : thermal)}
+              rows={
+                part === 'oilPump'
+                  ? [row('Oil pressure', 'oilPressBar', 2), row('Oil temp', 'oilC', 1)]
+                  : [row('Coolant', 'coolantC', 1), row('Oil temp', 'oilC', 1)]
+              }
+              actions={
+                <>
+                  <Button variant="ghost" onClick={() => set({ page: 'math' })}>
+                    Show the math
+                  </Button>
+                  <Button variant="secondary" onClick={() => setPart(null)}>
+                    Close
+                  </Button>
+                </>
+              }
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </ViewportChrome>
+  );
+}
+
+function HealthPanel() {
+  const a = useSim((s) => s.snapshot?.analytics);
+  const lifecycle = useSim((s) => s.snapshot?.lifecycle ?? 'OFF');
+  const running = useSim((s) => isEngineRunning(s.snapshot));
+  const health = a?.overallHealth ?? 100;
+  const level = a?.overallLevel ?? 'NORMAL';
+  const fault = a?.explanation?.fault;
+
+  return (
+    <Panel tab className="flex flex-col items-center gap-6 p-8 text-center">
+      <HealthRing score={health} state={level} size={176} />
+      <div className="flex min-h-24 flex-col items-center gap-3">
+        {level === 'NORMAL' ? <LifecycleBadge state={lifecycle} /> : <AlertBadge cls={level} />}
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={fault ?? (running ? 'ok' : 'off')}
+            className="text-h2 font-bold leading-tight"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.24, ease: EASE_OUT }}
+          >
+            {fault ?? (running ? 'No fault evidence' : 'Engine is off')}
+          </motion.span>
+        </AnimatePresence>
+        {!running ? (
+          <Button variant="primary" onClick={() => sendSim({ type: 'start' })}>
+            Start engine
+          </Button>
+        ) : (
+          <span className="num text-xs text-fg-2">RUL · arrives with trend analysis (Phase 9)</span>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function SubsystemsPanel() {
+  const subs = useSim((s) => s.snapshot?.analytics?.subsystems);
+  return (
+    <Panel className="flex flex-col gap-5">
+      <span className="label">Subsystems</span>
+      <SubsystemBars items={subs ?? []} />
+      <span className="num text-label text-fg-3">
+        — = not monitored until the crank-angle model (Phase 7)
+      </span>
+    </Panel>
+  );
+}
+
+/* ---------- signals ---------- */
+
+function Signals() {
+  const tel = useSim((s) => s.snapshot?.telemetry);
+  const exp = useSim((s) => s.snapshot?.expected);
+  const f = useSim((s) => s.snapshot?.analytics?.features);
+  const targetRpm = useUi((s) => s.targetRpm);
+  const running = useSim((s) => isEngineRunning(s.snapshot));
+  if (!tel || !exp) return <p className="num text-fg-3">Waiting for the simulation worker…</p>;
+
+  const q = (v: number | null) => (v == null ? ('unavailable' as const) : ('valid' as const));
+  const ch = (c: ResidualChannel) => f?.channels[c];
+  const rpmStatus = tel.rpm > 6000 ? 'crit' : 'ok';
+
+  return (
+    <Stagger className="grid grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2 xl:grid-cols-3">
+      <StaggerItem>
+        <Gauge
+          label="Engine speed"
+          unit="rpm"
+          value={tel.rpm}
+          expected={running ? targetRpm : 0}
+          min={0}
+          max={7000}
+          status={rpmStatus}
+          quality="valid"
+          zones={[{ from: 6000, to: 7000, status: 'crit' }]}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <Gauge
+          label="Coolant"
+          unit="°C"
+          value={tel.coolantC}
+          expected={exp.coolantC}
+          min={20}
+          max={130}
+          decimals={1}
+          status={residualStatus(ch('coolantC')?.z)}
+          quality={q(tel.coolantC)}
+          z={ch('coolantC')?.z}
+          zones={[
+            { from: 105, to: 120, status: 'warn' },
+            { from: 120, to: 130, status: 'crit' },
+          ]}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <Gauge
+          label="Oil temp"
+          unit="°C"
+          value={tel.oilC}
+          expected={exp.oilC}
+          min={20}
+          max={160}
+          status={residualStatus(ch('oilC')?.z)}
+          quality={q(tel.oilC)}
+          z={ch('oilC')?.z}
+          zones={[{ from: 140, to: 160, status: 'crit' }]}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <Gauge
+          label="Oil pressure"
+          unit="bar"
+          value={tel.oilPressBar}
+          expected={exp.oilPressBar}
+          min={0}
+          max={5}
+          decimals={2}
+          status={residualStatus(ch('oilPressBar')?.z)}
+          quality={q(tel.oilPressBar)}
+          z={ch('oilPressBar')?.z}
+          zones={[{ from: 0, to: 0.5, status: 'crit' }]}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <Gauge
+          label="Voltage"
+          unit="V"
+          value={tel.busV}
+          expected={exp.busV}
+          min={10}
+          max={15}
+          decimals={1}
+          status={residualStatus(ch('busV')?.z)}
+          quality={q(tel.busV)}
+          z={ch('busV')?.z}
+          zones={[{ from: 10, to: 11.8, status: 'warn' }]}
+        />
+      </StaggerItem>
+      <StaggerItem>
+        <div className="flex h-full min-h-40 flex-col justify-between gap-4 border border-dashed border-line bg-panel/60 p-5">
+          <span className="label">Vibration RMS</span>
+          <span className="text-sm leading-relaxed text-fg-3">
+            Arrives with the crank-angle model and order spectrum (Phase 7).
+          </span>
+        </div>
+      </StaggerItem>
+    </Stagger>
+  );
+}
+
+/* ---------- diagnosis ---------- */
+
+function Diagnosis() {
+  const e = useSim((s) => s.snapshot?.analytics?.explanation ?? null);
+  const running = useSim((s) => isEngineRunning(s.snapshot));
+  return (
+    <AnimatePresence mode="wait">
+      {e ? (
+        <motion.div
+          key={`${e.fault}-${e.alert}`}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.3, ease: EASE_OUT }}
+        >
+          <ExplanationCard e={e} />
+        </motion.div>
+      ) : (
+        <motion.div
+          key="calm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.24 }}
+        >
+          <Panel className="flex flex-col gap-3 border-l-4 border-l-ok p-8">
+            <span className="label">Probable fault</span>
+            <h3 className="text-[22px] leading-tight font-bold">No fault evidence</h3>
+            <p className="m-0 leading-relaxed text-fg-2">
+              {running
+                ? 'Every residual is inside its noise band. Inject a fault from the test bench to watch the evidence build.'
+                : 'The engine is off. Start it from the test bench; alerts arm once it has run for a few seconds.'}
+            </p>
+          </Panel>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function Alerts() {
+  const alerts = useSim((s) => s.snapshot?.analytics?.alerts ?? NO_ALERTS);
+  if (!alerts.length)
+    return (
+      <p className="m-0 border border-dashed border-line px-5 py-6 text-sm text-fg-3">
+        No alerts yet.
+      </p>
+    );
+  return (
+    <motion.div layout className="flex flex-col gap-3">
+      <AnimatePresence initial={false}>
+        {alerts.slice(0, 8).map((a) => (
+          <motion.div
+            key={a.id}
+            layout
+            initial={{ opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.24, ease: EASE_OUT }}
+          >
+            <AlertItem a={a} />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </motion.div>
   );
 }

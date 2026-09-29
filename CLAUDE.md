@@ -32,13 +32,13 @@ IgniSense is a browser-only digital twin of a 2.0 L inline-4 petrol engine. A **
 - **Fonts:** Space Grotesk (UI) + JetBrains Mono (every number/label, `num` utility for tabular figures). Self-hosted via @fontsource, so the app works offline.
 - **Airy (Amendment A, overrides the original handoff):** 24/40px page gutters, max width 1440px, 24px gaps between regions, 24px+ panel padding, a numbered section header on each page, and one idea per view. Test-bench controls live in a slide-in drawer, not a sidebar.
 - **Motion:** `motion` (`motion/react`). Page transitions, sliding tab indicator, scroll-reveal stagger, spring drawer, hover lift. Shared presets are in `src/ui/motion.tsx`. **Live numbers never tween**; only geometry animates. `MotionConfig reducedMotion="user"` plus the CSS reduced-motion rule.
-- **Sample data:** until the worker streams real snapshots, the UI reads from `src/ui/preview/sample.ts`, and the header shows a SAMPLE DATA tag. Delete that tag and file once Phase 4 wires the real store.
+- **Live data:** Live Twin, Trends, the header, the test bench and Debug are live from the worker (`src/ui/sim/`). Only Vibration (Phase 7) and Report (Phase 10) still show labelled sample content. A zustand selector must never return a fresh `[]`/`{}` (it re-renders forever); use a module-level constant.
 
 ---
 
 ## Non-negotiable architecture rules
 
-1. **Plant / Twin / Analytics separation.** `src/plant/`, `src/twin/` and `src/analytics/` are separate folders. `analytics/` may import only the `Telemetry` type, the Twin's expected-value output types, its own files, and `lib/`. It must never import fault state, plant state, or anything under `plant/` or `sources/`. This is enforced by ESLint `no-restricted-imports`. Never disable it.
+1. **Plant / Twin / Analytics separation.** `src/plant/`, `src/twin/` and `src/analytics/` are separate folders. `analytics/` may import only the `Telemetry` type, the Twin's expected-value output types, its own files, `lib/`, the pure shared `physics/` (for context-corrected expectations, draft §17.3) and `engine/profile` (sensor specs). It must never import fault state, plant state, or anything under `plant/` or `sources/`. This is enforced by ESLint `no-restricted-imports`. Never disable it.
 2. **One telemetry format.** Every source (simulator, CSV replay, ESP32, OBD-II) emits the same `Telemetry` object (`src/telemetry.ts`). Adding hardware means adding one adapter in `sources/`. Analytics never changes.
 3. **The Twin is blind.** The Twin runs the same `physics/` functions with every health factor = 1. It is driven only by *measured* RPM, load and ambient from telemetry.
 4. **Physics is pure and shared.** `src/physics/` holds pure functions with no state and no imports from plant/twin/analytics/sources/worker/ui. Each equation is registered as `{ id, latex, inputs, compute }` so "Show the math" can render it with live numbers.
@@ -76,7 +76,8 @@ Login, database server, fleet/multi-engine views, Isolation Forest, neural netwo
 ```text
 src/
   brand.ts     IgniSense / Revora name strings
-  telemetry.ts the Telemetry interface (the one boundary type)
+  telemetry.ts the Telemetry interface (the one boundary type; includes the fanOn actuator command)
+  lifecycle.ts engine lifecycle type (observable state shared by Plant, snapshot, alerts)
   lib/         rng (seeded), small math utils; importable from anywhere
   physics/     pure equations + equation registry (Show the math)
   engine/      profile.ts: every parameter, units in the name (bore_m, uaFan_WperK)
@@ -84,7 +85,8 @@ src/
   twin/        healthy reference: same physics, all health = 1
   analytics/   residuals, features, fft, mahalanobis, cusum, diagnosis, health, rul, alerts
   sources/     simSource, replaySource (CSV), serialSource (ESP32 / OBD-II stub)
-  worker/      sim.worker.ts: runs source -> twin -> analytics, posts snapshots
+  worker/      simLoop.ts (testable loop: source -> twin -> analytics), sim.worker.ts (thin Worker
+               wrapper, 20 Hz snapshots), protocol.ts (Command / Snapshot types)
   three/       Engine, Crank, Piston, CoolantFlow, heat-map materials
   ui/          design system + app shell
     tokens.ts, status.tsx, primitives.tsx, Gauge.tsx, health.tsx, diagnostics.tsx,
@@ -92,9 +94,10 @@ src/
     motion.tsx   shared motion presets (Reveal, Stagger, page/drawer transitions)
     store.ts     UI state (page, test-bench controls) — zustand
     shell/       AppShell (header, tabs, routing), TestBench drawer, Brand/SectionHeader
-    pages/       LiveTwin, Trends, Vibration, Math, Validation, Report
-    charts/      SVG preview charts (replaced by uPlot with live data)
-    preview/     sample.ts — DESIGN PREVIEW DATA, removed when the worker is wired
+    pages/       LiveTwin, Trends, Vibration, Math, Validation, Report, Debug (live sim table)
+    sim/         simClient.ts (worker, `useSim`, `sendSim`, control sync), history.ts (chart ring buffer, outside React)
+    format.ts    clock + residual → status helpers
+    charts/      LiveChart.tsx (uPlot, transient 4 Hz redraw) + SVG previews for Vibration
   tests/       cross-module/scenario tests (unit tests sit next to their files as *.test.ts)
 docs/          source documents, open questions, calibration log
 ```
@@ -168,7 +171,7 @@ npm run preview      # serve the build locally (offline demo)
 
 **Physics code map:** `src/physics/` = basics, torque, friction, energy, cooling, oil, electrical (pure functions + registry) and `engineModel.ts` (`evaluateEngine` / `stepThermal`, the composed slow model that Plant and Twin both call, with `HealthFactors`). All chosen values and reasons are in `docs/calibration.md`.
 
-**Sensor model** (draft §15): y = x + b + d(t) + ε, plus dropout (null), stuck-at, spike, delay and scale error. σ per signal to be chosen in Phase 2.
+**Sensor model** (draft §15): y = x + b + d(t) + ε, plus dropout (null), stuck, spike, bias and drift. σ: rpm 5, load 0.004, ambient 0.1 °C, coolant 0.2 °C, oil 0.3 °C, pressure 0.03 bar, bus 0.03 V (`PROFILE.sensors`, calibration.md).
 
 **Fault severity** (draft §18–19): severity S ∈ [0,1] maps to a health factor (H_pump = 1 − 0.75·S; for cooling see Q-04). Progression: linear S = min(1, S₀ + r·t) for the MVP; stress-dependent later (Q-10).
 
@@ -283,30 +286,34 @@ Doc: review *Physics corrections* (Fix 1–3), *Proving a sensor fault*; draft �
 ### Phase 2: Plant, sensors, Twin, worker loop
 Doc: review *Plant vs Twin*, *Timing*; draft §15, §31–33.
 
-- [ ] `plant/`: engine state (T_c, T_o, rpm, load, lifecycle state), fault state (all health 1 by default), step at Δt = 0.05 s
-- [ ] Engine lifecycle OFF/STARTING/WARMUP/RUNNING/SHUTDOWN (draft §32, Q-20)
-- [ ] `plant/sensors.ts`: noise, bias, drift, dropout (→ `null`), stuck, spike, all via the seeded RNG. Output is `Telemetry`
-- [ ] `twin/`: same physics, health = 1, driven only by telemetry rpm/load/ambient. Outputs expected values
-- [ ] `sources/simSource.ts` wraps plant + sensors
-- [ ] `worker/sim.worker.ts`: start/stop, load, ambient, time-warp (1×/10×/60×), 20 Hz snapshots
-- [ ] Minimal debug UI: measured vs expected table
+- [x] `plant/`: engine state (T_c, T_o, rpm, load, lifecycle state), fault state (all health 1 by default), step at Δt = 0.05 s
+- [x] Engine lifecycle OFF/STARTING/WARMUP/RUNNING/SHUTDOWN (draft §32, Q-20)
+- [x] `plant/sensors.ts`: noise, bias, drift, dropout (→ `null`), stuck, spike, all via the seeded RNG. Output is `Telemetry`
+- [x] `twin/`: same physics, health = 1, driven only by telemetry rpm/load/ambient. Outputs expected values
+- [x] `sources/simSource.ts` wraps plant + sensors
+- [x] `worker/sim.worker.ts`: start/stop, load, ambient, time-warp (1×/10×/60×), 20 Hz snapshots
+- [x] Minimal debug UI: measured vs expected table
 
 **Exit checks:** A healthy run keeps residuals within sensor noise at every operating point. The same seed gives identical telemetry across runs (test). Time-warp 60× warms the engine in well under a minute of wall time. The UI stays smooth.
+
+✅ All met (67 tests). Healthy residual mean within ±0.08 σ and spread about 1 σ at every operating point. Same seed gives identical telemetry. Idle warm-up takes 25 s of wall time at 60×. Checked in a real browser (Edge, driven over CDP): Start → STARTING → WARMUP → RUNNING at 3,010 rpm, sim rate 59–61×.
 
 ---
 
 ### Phase 3: Faults, residuals, diagnosis, health, alerts
 Doc: review *Plant vs Twin*, *Detection* (Diagnosis row); draft §16–23, §27–29, §38–41. Open questions: Q-04, Q-05, Q-15, Q-16, Q-18.
 
-- [ ] Faults with progressive severity: cooling degradation, oil-pump wear
-- [ ] `analytics/residuals.ts`: r and z per signal; EMA filter and rates of change (draft §17)
-- [ ] `analytics/diagnosis.ts`: fault evidence scores with the draft's weights (renormalized). Each contribution traces to a named symptom
-- [ ] `analytics/health.ts`: subsystem health + overall health (draft weights) + critical overrides
-- [ ] `analytics/alerts.ts`: hysteresis state machine + alert classes, lifecycle-aware
-- [ ] Explanation-card data in the draft §35.5 format
-- [ ] Scenario tests: each fault gives the correct top diagnosis; a healthy run gives no diagnosis; the draft §22.1 health example gives 69.4
+- [x] Faults with progressive severity: cooling degradation, oil-pump wear
+- [x] `analytics/residuals.ts`: r and z per signal; EMA filter and rates of change (draft §17)
+- [x] `analytics/diagnosis.ts`: fault evidence scores with the draft's weights (renormalized). Each contribution traces to a named symptom
+- [x] `analytics/health.ts`: subsystem health + overall health (draft weights) + critical overrides
+- [x] `analytics/alerts.ts`: hysteresis state machine + alert classes, lifecycle-aware
+- [x] Explanation-card data in the draft §35.5 format
+- [x] Scenario tests: each fault gives the correct top diagnosis; a healthy run gives no diagnosis; the draft §22.1 health example gives 69.4
 
 **Exit checks:** Pump health 0.4 at hot idle → lubrication fault. Cooling health 0.5 at full load → cooling fault. No false WARNING in a 10-minute simulated healthy run. `analytics/` still passes the boundary lint.
+
+✅ All met (85 tests). Healthy 20 min with 8 load changes: max evidence 0.027, always NORMAL. Pump 0.4 hot idle → lubrication (override CRITICAL in about 15 s). Cooling 0.5 full load → cooling CRITICAL, lube score 0.00 (no cross-talk, Q-32). Boundary probe: 3/3 illegal imports rejected.
 
 ---
 
@@ -315,14 +322,16 @@ Doc: review *Plant vs Twin*, *Detection* (Diagnosis row); draft §16–23, §27�
 
 Doc: review *App screens* (Live Twin, Trends); draft §35.1, §35.3, §35.6.
 
-- [ ] IgniSense-branded layout: left controls, centre (3D placeholder), right health panel, bottom gauges
-- [ ] Controls: start/stop, load, target RPM, ambient, fan auto/on/off, time-warp, scenario picker, fault panel (fault, severity, gradual/instant)
-- [ ] Gauges with Twin ghost markers: RPM, coolant, oil temp, oil pressure, voltage, vibration RMS (placeholder until Phase 7)
-- [ ] Health ring, subsystem bars, engine-state badge, alert list, explanation card
-- [ ] Trends page (uPlot): measured vs expected, fault-injection and alert markers
-- [ ] Zustand store with transient subscriptions
+- [x] IgniSense-branded layout: left controls, centre (3D placeholder), right health panel, bottom gauges
+- [x] Controls: start/stop, load, target RPM, ambient, fan auto/on/off, time-warp, scenario picker, fault panel (fault, severity, gradual/instant)
+- [x] Gauges with Twin ghost markers: RPM, coolant, oil temp, oil pressure, voltage, vibration RMS (placeholder until Phase 7)
+- [x] Health ring, subsystem bars, engine-state badge, alert list, explanation card
+- [x] Trends page (uPlot): measured vs expected, fault-injection and alert markers
+- [x] Zustand store with transient subscriptions
 
 **Exit checks:** Inject the oil-pump fault from the UI and see the ghost separate, health drop, a WATCH→WARNING alert after persistence, and the card name the fault. No whole-tree re-render per tick.
+
+✅ Checked in a real browser (Edge over CDP, no console errors): Start → warm-up at 60× → Inject fault (oil pump 0.6, gradual) → the ghost separates (1.69 vs 3.19 bar), health drops to 71, WATCH → WARNING alerts appear, and the card names 'Lubrication-system degradation' with its evidence. Trends shows live uPlot charts with residual band, fault marker and alert diamonds. Deviations: controls live in the test-bench drawer (Amendment A); the scenario picker moves to Phase 6 (hero scenario); the vibration gauge is a Phase 7 placeholder. Re-render: every block selects its own slice, and charts redraw from a ring buffer outside React.
 
 ---
 
@@ -450,3 +459,5 @@ _One line per completed phase: date, phase, result, open issues._
 - 2026-09-28: **Phase 0 complete.** Scaffolded Vite 8/React 19/TS 6 strict, Tailwind v4, Zustand, Vitest 5, ESLint 10 + Prettier. Added brand.ts, telemetry.ts, seeded RNG, engine profile, and the 4 boundary lint rules (verified: 5 illegal probe imports rejected, the Telemetry import allowed). 9 tests pass; lint, typecheck and build are clean; the dev server serves the IgniSense shell. Git initialised (no commits yet). Waiting for user review before Phase 1.
 - 2026-09-28: **Design system imported + UI shell (pulled ahead of Phase 4).** Imported the IgniSense design system (tokens, fonts, components) from the Claude Design handoff into `src/index.css` + `src/ui/`. Wrote Amendment A (airy + motion) in `docs/design/DESIGN.md`. Built a hash-routed shell with 6 pages, a spring test-bench drawer, a sliding tab indicator, page transitions and scroll reveals, all on labelled sample data. Checked in headless Edge at 1440px and 504px; fixed full-border status colouring (the design colours a single edge) and grid overflow on narrow screens. Lint has 11 warnings (react-refresh, files exporting helpers); no errors. Physics Phase 1 is still next.
 - 2026-09-28: **Phase 1 complete.** Pure physics modules (basics, torque, friction, energy, cooling, oil, electrical) + equation registry (13 equations) + composed `engineModel` (evaluate/step). All review golden numbers reproduce within 2 % (most < 0.5 %): 93/132/110 °C steady states, fan cycling 96–98 °C, and all six oil-pressure cases. Warm-up to 82 °C takes 25.1 min, which resolves Q-01 (cold-oil friction). Oil-temp and alternator constants are provisional and logged in `docs/calibration.md`; new items Q-27–Q-29. The Validation page shows live PASS for the Phase 1 rows. 47 tests pass; lint/typecheck/build clean. Waiting for user review (and the brother's calibration sign-off) before Phase 2.
+- 2026-09-29: **Phase 2 complete.** Plant (lifecycle OFF/STARTING/WARMUP/RUNNING/SHUTDOWN, fan override, hidden health), sensor model (noise/bias/drift/stuck/spike/dropout, seeded), blind Twin (healthy physics from telemetry only, follows the measured fan), SimSource, testable SimLoop + Web Worker (20 Hz, 1/10/60×, pause/reset), UI sim client, live header and test bench, Debug page. Healthy residuals ≈ pure sensor noise (mean ≤ 0.08 σ). Determinism verified; 60× idle warm-up takes 25 s of wall time; checked end to end in a real browser. New provisional items Q-30–Q-33 (parked cooling, shutdown sag, Twin oil-temp coupling, fanOn in Telemetry). 67 tests; lint/typecheck/build clean. Waiting for user review before Phase 3.
+- 2026-09-29: **Phases 3 & 4 complete.** Phase 3: progressive Plant faults (cooling, oil pump + lubrication degradation); `analytics/` = EMA residuals, context-corrected pressure (resolves Q-32), draft-weighted evidence scores, subsystem/overall health with critical overrides, hysteresis alert machines, alert log, draft §35.5 explanation; runs at 10 Hz in the worker. Phase 4: removed all sample data from Live Twin/Trends; live gauges with Twin ghosts and residual-coloured status, health ring, subsystem bars, animated explanation card and alert list, part panels from live residuals, uPlot Trends (both-direction residual band, fault and alert markers), test-bench inject/repair. 85 tests; lint/typecheck/build clean; end-to-end fault run verified in a real browser. New Q-34/Q-35. Next: Phase 5 (3D engine).

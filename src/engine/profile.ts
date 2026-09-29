@@ -80,6 +80,8 @@ export const PROFILE = {
     /** thermostat linear ramp (draft §34) */
     thermostatOpen_C: 82,
     thermostatFull_C: 95,
+    /** Parked engine only: natural convection so a stopped engine cools down (Q-30). Not applied while running. */
+    parkedLoss_WperK: 25,
   },
 
   lubrication: {
@@ -111,6 +113,34 @@ export const PROFILE = {
     alternatorSpeedConst_rpm: 600,
     /** ΔV_load: drop from the vehicle's electrical load */
     loadDrop_V: 0.2,
+    /** Starter draw: below this speed (cranking) the bus sags to crankingV (Q-20) */
+    crankingBelow_rpm: 400,
+    crankingV: 10.5,
+  },
+
+  lifecycle: {
+    // Draft §31–32. PROVISIONAL (Q-20), see docs/calibration.md.
+    crankingRpm: 250,
+    crankingDuration_s: 1.0,
+    /** first-order lag of engine speed toward the target (slow model; crank dynamics come in Phase 7) */
+    rpmTimeConst_s: 0.6,
+    shutdownTimeConst_s: 0.4,
+    /** |rpm − target| above this = TRANSIENT */
+    transientBand_rpm: 100,
+  },
+
+  /**
+   * Sensor model y = x + b + d(t) + ε (draft §15). σ values are PROVISIONAL demo calibration.
+   * bias/drift are 0 for healthy sensors; sensor faults set them (Phase 9).
+   */
+  sensors: {
+    rpm: { sigma: 5, unit: 'rpm' },
+    load: { sigma: 0.004, unit: '' },
+    ambientC: { sigma: 0.1, unit: '°C' },
+    coolantC: { sigma: 0.2, unit: '°C' },
+    oilC: { sigma: 0.3, unit: '°C' },
+    oilPressBar: { sigma: 0.03, unit: 'bar' },
+    busV: { sigma: 0.03, unit: 'V' },
   },
 
   faults: {
@@ -118,6 +148,10 @@ export const PROFILE = {
     pumpSeverityGain: 0.75,
     /** H_cool = 1 − k·S. Draft uses 0.7; 0.8 lets H_cool reach the review's 0.25 test case (Q-04) */
     coolingSeverityGain: 0.8,
+    /** gradual onset: severity ramps from 0 to its target over this many simulated seconds */
+    gradualRamp_s: 120,
+    /** lubrication degradation from a weak pump: D_lube = gain · (1 − H_pump) (draft §10.3, §28) */
+    lubeFromPumpGain: 1,
   },
 
   sim: {

@@ -1,53 +1,36 @@
 import { SectionHeader } from '../shell/Brand';
 import { Panel } from '../primitives';
 import { Reveal, Stagger, StaggerItem } from '../motion';
-import { TrendChart, TrendLegend, type TrendSpec } from '../charts/PreviewCharts';
+import { LiveChart, LiveLegend } from '../charts/LiveChart';
+import { color } from '../tokens';
 
-const OIL: TrendSpec = {
-  base: 3.23,
-  drop: -1.55,
-  yMin: 0.5,
-  yMax: 4,
-  ticks: [1, 2, 3, 4],
-  watchAt: 2,
-  critAt: 1,
-  faultLabel: 'PUMP FAULT',
-};
-const COOLANT: TrendSpec = {
-  base: 93,
-  drop: 0.6,
-  yMin: 80,
-  yMax: 110,
-  ticks: [85, 95, 105],
-  faultLabel: 'PUMP FAULT',
-};
-const OILTEMP: TrendSpec = {
-  base: 101,
-  drop: 7,
-  yMin: 90,
-  yMax: 120,
-  ticks: [95, 105, 115],
-  watchAt: 112,
-  faultLabel: 'PUMP FAULT',
-};
-
+/**
+ * Trends (Phase 4): live measured-vs-Twin history with fault-injection and alert markers.
+ * D² and CUSUM panels join in Phase 9.
+ */
 export function TrendsPage() {
   return (
     <div className="flex flex-col gap-14">
       <SectionHeader
         index="02"
         title="Trends"
-        description="Measured against the Twin over time, with fault-injection and alert markers. Statistical limits (D², CUSUM) join in Phase 9."
+        description="Measured against the Twin over simulated time. The shaded gap is the residual; violet lines mark fault injections, diamonds mark alerts. Statistical limits (D², CUSUM) join in Phase 9."
       />
 
       <Reveal>
         <Panel tab className="flex flex-col gap-6 p-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h3 className="text-h2 font-bold">Oil pressure · measured vs Twin</h3>
-            <TrendLegend />
+            <LiveLegend />
           </div>
-          <TrendChart spec={OIL} />
-          <p className="num m-0 text-label text-fg-3">sample data · bar · simulated time →</p>
+          <LiveChart
+            measuredKey="press"
+            expectedKey="pressExp"
+            label="Oil pressure"
+            height={300}
+            thresholds={[{ y: 1, color: color.crit }]}
+          />
+          <p className="num m-0 text-label text-fg-3">bar · simulated time (mm:ss) →</p>
         </Panel>
       </Reveal>
 
@@ -55,13 +38,33 @@ export function TrendsPage() {
         <StaggerItem>
           <Panel lift className="flex flex-col gap-5">
             <h3 className="text-h3 font-semibold">Coolant · °C</h3>
-            <TrendChart spec={COOLANT} />
+            <LiveChart
+              measuredKey="coolant"
+              expectedKey="coolantExp"
+              label="Coolant"
+              thresholds={[
+                { y: 105, color: color.watch },
+                { y: 120, color: color.crit },
+              ]}
+            />
           </Panel>
         </StaggerItem>
         <StaggerItem>
           <Panel lift className="flex flex-col gap-5">
             <h3 className="text-h3 font-semibold">Oil temperature · °C</h3>
-            <TrendChart spec={OILTEMP} />
+            <LiveChart measuredKey="oil" expectedKey="oilExp" label="Oil temp" />
+          </Panel>
+        </StaggerItem>
+        <StaggerItem>
+          <Panel lift className="flex flex-col gap-5">
+            <h3 className="text-h3 font-semibold">Bus voltage · V</h3>
+            <LiveChart measuredKey="busV" expectedKey="busVExp" label="Bus voltage" />
+          </Panel>
+        </StaggerItem>
+        <StaggerItem>
+          <Panel lift className="flex flex-col gap-5">
+            <h3 className="text-h3 font-semibold">Overall health · 0–100</h3>
+            <LiveChart measuredKey="health" label="Health" yRange={[0, 100]} />
           </Panel>
         </StaggerItem>
       </Stagger>

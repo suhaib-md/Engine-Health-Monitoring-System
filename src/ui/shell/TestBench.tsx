@@ -1,11 +1,20 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Button, Segmented, Slider, Toggle } from '../primitives';
-import { FAULTS, useUi, type FanMode, type FaultId, type FaultMode, type Warp } from '../store';
+import {
+  AVAILABLE_PHASE,
+  FAULTS,
+  useUi,
+  type FanMode,
+  type FaultId,
+  type FaultMode,
+  type Warp,
+} from '../store';
 import { scoreStatus } from '../tokens';
 import { statusBg, statusText } from '../status';
 import { drawerSpring } from '../motion';
 import { PROFILE } from '../../engine/profile';
+import { isEngineRunning, sendSim, useSim } from '../sim/simClient';
 
 /**
  * Test-bench drawer (Amendment A): engine and fault controls slide in from the left
@@ -13,6 +22,7 @@ import { PROFILE } from '../../engine/profile';
  */
 export function TestBench() {
   const ui = useUi();
+  const running = useSim((s) => isEngineRunning(s.snapshot));
   const close = () => ui.set({ benchOpen: false });
 
   useEffect(() => {
@@ -24,7 +34,13 @@ export function TestBench() {
   }, [ui.benchOpen]);
 
   // A fault slider fills in the status colour of the health it produces.
-  const sevStatus = scoreStatus(100 * (1 - 0.75 * ui.severity));
+  const fault = FAULTS.find((f) => f.id === ui.fault) ?? FAULTS[0];
+  const sevStatus = scoreStatus(100 * (1 - fault.gain * ui.severity));
+  const injectable = fault.phase <= AVAILABLE_PHASE;
+  const inject = () => {
+    if (fault.id !== 'oilPump' && fault.id !== 'cooling') return;
+    sendSim({ type: 'injectFault', fault: fault.id, severity: ui.severity, onset: ui.faultMode });
+  };
 
   return (
     <AnimatePresence>
@@ -64,9 +80,9 @@ export function TestBench() {
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => ui.set({ engineOn: !ui.engineOn })}
+                onClick={() => sendSim({ type: running ? 'stop' : 'start' })}
               >
-                {ui.engineOn ? 'Stop engine' : 'Start engine'}
+                {running ? 'Stop engine' : 'Start engine'}
               </Button>
               <Slider
                 label="Target RPM"
@@ -130,8 +146,9 @@ export function TestBench() {
                   className="h-10 cursor-pointer border border-line-strong bg-panel px-3 text-base text-fg"
                 >
                   {FAULTS.map((f) => (
-                    <option key={f.id} value={f.id}>
+                    <option key={f.id} value={f.id} disabled={f.phase > AVAILABLE_PHASE}>
                       {ui.blind ? '•••••••' : f.label}
+                      {f.phase > AVAILABLE_PHASE ? ` (Phase ${f.phase})` : ''}
                     </option>
                   ))}
                 </select>
@@ -157,16 +174,24 @@ export function TestBench() {
                 ]}
               />
               <div className="flex gap-3">
-                <Button variant="danger" className="flex-1" disabled>
+                <Button variant="danger" className="flex-1" disabled={!injectable} onClick={inject}>
                   Inject fault
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => sendSim({ type: 'clearFaults' })}
+                >
+                  Repair
                 </Button>
               </div>
               <Toggle checked={ui.blind} onChange={(v) => ui.set({ blind: v })}>
                 {ui.blind ? 'Blind mode on · fault hidden' : 'Blind mode off'}
               </Toggle>
               <p className="num m-0 text-label leading-relaxed text-fg-3">
-                Fault injection connects to the simulator in Phase 3. All values are demo
-                calibration.
+                Severity {ui.severity.toFixed(2)} leaves {fault.label.toLowerCase()} at health{' '}
+                {(1 - fault.gain * ui.severity).toFixed(2)}. Gradual onset ramps over 120 simulated
+                seconds. All values are demo calibration.
               </p>
             </section>
           </motion.aside>
