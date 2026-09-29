@@ -9,6 +9,8 @@ import { formatClock } from '../format';
 import { useSim, useSimWorker } from '../sim/simClient';
 import { startHistory } from '../sim/history';
 import { Mark, Wordmark } from './Brand';
+import { pageIcon } from '../icons';
+import { SlidersHorizontal } from 'lucide-react';
 import { TestBench } from './TestBench';
 import { LiveTwinPage } from '../pages/LiveTwin';
 import { TrendsPage } from '../pages/Trends';
@@ -122,25 +124,29 @@ export function AppShell() {
               className="order-last -mx-6 flex w-[calc(100%+3rem)] overflow-x-auto px-6 lg:order-none lg:mx-0 lg:w-auto lg:px-0"
               aria-label="Pages"
             >
-              {PAGES.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => set({ page: p.id })}
-                  aria-current={p.id === page ? 'page' : undefined}
-                  className={`relative flex h-14 shrink-0 cursor-pointer items-center px-4 text-sm font-semibold uppercase tracking-[0.04em] transition-colors duration-fast lg:h-16 ${
-                    p.id === page ? 'text-fg' : 'text-fg-3 hover:text-fg'
-                  }`}
-                >
-                  {p.label}
-                  {p.id === page && (
-                    <motion.span
-                      layoutId="tab-underline"
-                      className="absolute inset-x-3 bottom-0 h-0.5 bg-accent"
-                      transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                    />
-                  )}
-                </button>
-              ))}
+              {PAGES.map((p) => {
+                const Icon = pageIcon[p.id];
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => set({ page: p.id })}
+                    aria-current={p.id === page ? 'page' : undefined}
+                    className={`relative flex h-14 shrink-0 cursor-pointer items-center gap-2 px-4 text-sm font-semibold uppercase tracking-[0.04em] transition-colors duration-fast lg:h-16 ${
+                      p.id === page ? 'text-fg' : 'text-fg-3 hover:text-fg'
+                    }`}
+                  >
+                    <Icon aria-hidden className="size-4" />
+                    {p.label}
+                    {p.id === page && (
+                      <motion.span
+                        layoutId="tab-underline"
+                        className="absolute inset-x-3 bottom-0 h-0.5 bg-accent"
+                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </nav>
 
             <div className="ml-auto flex h-16 items-center gap-4">
@@ -148,6 +154,7 @@ export function AppShell() {
               <SimLifecycle />
               <SimClock />
               <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
+                <SlidersHorizontal aria-hidden className="size-4" />
                 Test bench
               </Button>
             </div>

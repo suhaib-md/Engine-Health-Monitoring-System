@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
+import { Play } from 'lucide-react';
 import { Button } from './primitives';
 import { EASE_OUT } from './motion';
 import { sendSim, useSim } from './sim/simClient';
@@ -13,6 +14,7 @@ export function RunHeroButton() {
       title={hero?.blurb}
       onClick={() => sendSim({ type: 'runScenario', id: 'hero' })}
     >
+      <Play aria-hidden className="size-4 fill-current" />
       Run hero scenario
     </Button>
   );

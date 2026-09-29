@@ -28,6 +28,8 @@ export function TestBench() {
   const running = useSim((s) => isEngineRunning(s.snapshot));
   const scenarioActive = useSim((s) => !!s.snapshot?.scenario);
   const blindActive = useSim((s) => !!s.snapshot?.blind);
+  // actions (inject, repair, start/stop, run/stop scenario) close the drawer so the result is visible;
+  // settings (sliders, warp, fan, fault picker) keep it open
   const close = () => ui.set({ benchOpen: false });
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export function TestBench() {
       sendSim({ type: 'injectSensorFault', channel: ui.sensorChannel, kind: ui.sensorKind });
     else
       sendSim({ type: 'injectFault', fault: fault.id, severity: ui.severity, onset: ui.faultMode });
+    close();
   };
 
   return (
@@ -122,7 +125,13 @@ export function TestBench() {
                   Run scenario
                 </Button>
                 {scenarioActive && (
-                  <Button variant="secondary" onClick={() => sendSim({ type: 'stopScenario' })}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      sendSim({ type: 'stopScenario' });
+                      close();
+                    }}
+                  >
                     Stop
                   </Button>
                 )}
@@ -138,7 +147,10 @@ export function TestBench() {
               <Button
                 variant="primary"
                 className="w-full"
-                onClick={() => sendSim({ type: running ? 'stop' : 'start' })}
+                onClick={() => {
+                  sendSim({ type: running ? 'stop' : 'start' });
+                  close();
+                }}
               >
                 {running ? 'Stop engine' : 'Start engine'}
               </Button>
@@ -313,7 +325,10 @@ export function TestBench() {
                 <Button
                   variant="secondary"
                   className="flex-1"
-                  onClick={() => sendSim({ type: 'clearFaults' })}
+                  onClick={() => {
+                    sendSim({ type: 'clearFaults' });
+                    close();
+                  }}
                 >
                   Repair
                 </Button>

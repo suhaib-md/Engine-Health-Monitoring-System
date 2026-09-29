@@ -9,8 +9,9 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-# check for the tools, not just the folder (an interrupted install leaves node_modules half-filled)
-if [ ! -x node_modules/.bin/tsc ] || [ ! -x node_modules/.bin/vite ]; then
+# check every package, not just the folder (an interrupted install leaves node_modules half-filled,
+# and a newer download may need a package added since)
+if [ ! -x node_modules/.bin/tsc ] || [ ! -x node_modules/.bin/vite ] || ! node -e "const p=require('./package.json'),fs=require('fs');const m=Object.keys({...p.dependencies,...p.devDependencies}).filter(d=>!fs.existsSync('node_modules/'+d+'/package.json'));process.exit(m.length?1:0)"; then
   echo "Installing dependencies. This needs internet and takes a minute or two..."
   npm install || { echo "npm install failed. Check the internet connection and try again."; exit 1; }
 fi

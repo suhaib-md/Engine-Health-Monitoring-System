@@ -1,6 +1,8 @@
 import type { AlertClass } from './tokens';
 import { alertStatus, color, scoreStatus } from './tokens';
 import { statusBg, statusText } from './status';
+import { subsystemIcon } from './icons';
+import { IconTile } from './primitives';
 
 /** Overall health ring. Colour follows the overall alert state, not score bands. 40 segments. */
 export function HealthRing({
@@ -76,15 +78,28 @@ export function HealthRing({
 
 export function SubsystemBars({
   items,
+  className = 'flex flex-col gap-4',
 }: {
-  items: { name: string; health: number | null; weight?: number }[];
+  items: { id?: string; name: string; health: number | null; weight?: number }[];
+  /** layout of the list (a column by default; Live Twin lays it out as a grid) */
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      {items.map(({ name, health, weight }) => {
+    <div className={className}>
+      {items.map(({ id, name, health, weight }) => {
         const s = scoreStatus(health);
+        const icon = id ? subsystemIcon[id] : undefined;
+        const tone = health == null ? 'invalid' : health < 70 ? s : 'accent';
         return (
-          <div key={name} className="grid grid-cols-[1fr_44px] items-center gap-x-4 gap-y-2">
+          <div
+            key={name}
+            className={`grid items-center gap-x-4 gap-y-2 ${icon ? 'grid-cols-[auto_1fr_44px]' : 'grid-cols-[1fr_44px]'}`}
+          >
+            {icon && (
+              <span className="row-span-2">
+                <IconTile icon={icon} tone={tone} />
+              </span>
+            )}
             <div className="flex justify-between text-sm">
               <span>{name}</span>
               {weight != null && (

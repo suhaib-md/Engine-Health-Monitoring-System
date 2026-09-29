@@ -13,11 +13,14 @@ import { RunHeroButton, ScenarioBar } from '../ScenarioBar';
 import { BlindBar } from '../BlindBar';
 import { CauseEffect } from '../CauseEffect';
 import { engineSound } from '../audio/engineSound';
+import { signalIcon } from '../icons';
+import { SlidersHorizontal, Volume2, VolumeX } from 'lucide-react';
 import { Reveal, Stagger, StaggerItem, drawerSpring, EASE_OUT } from '../motion';
 import { residualStatus } from '../format';
 import { scoreStatus } from '../tokens';
 import { ANALYTICS, riskHigh, riskStatus, type ResidualChannel } from '../../analytics';
 import { PROFILE } from '../../engine/profile';
+import { maxTorque_Nm } from '../../physics/torque';
 import { registerCallout } from '../../three/callouts';
 import type { PartId as EnginePartId } from '../../three/Engine';
 
@@ -44,6 +47,7 @@ export function LiveTwinPage() {
               <RunHeroButton />
               <SoundButton />
               <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
+                <SlidersHorizontal aria-hidden className="size-4" />
                 Open test bench
               </Button>
             </div>
@@ -51,18 +55,18 @@ export function LiveTwinPage() {
         />
         <ScenarioBar />
         <BlindBar />
+        {/* 3D view and health side by side at the same height; the subsystems run full width
+            underneath, so the wide layout never leaves an empty gap below the 3D view */}
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
           <Reveal>
             <Viewport />
           </Reveal>
-          <Stagger className="flex flex-col gap-6">
-            <StaggerItem>
-              <HealthPanel />
-            </StaggerItem>
-            <StaggerItem>
-              <SubsystemsPanel />
-            </StaggerItem>
-          </Stagger>
+          <Reveal className="h-full">
+            <HealthPanel />
+          </Reveal>
+          <Reveal className="xl:col-span-2">
+            <SubsystemsPanel />
+          </Reveal>
         </div>
       </section>
 
@@ -126,6 +130,7 @@ function SoundButton() {
         set({ sound: !on });
       }}
     >
+      {on ? <Volume2 aria-hidden className="size-4" /> : <VolumeX aria-hidden className="size-4" />}
       {on ? 'Sound on' : 'Sound off'}
     </Button>
   );
@@ -331,7 +336,7 @@ function HealthPanel() {
   const fault = a?.explanation?.fault;
 
   return (
-    <Panel tab className="flex flex-col items-center gap-6 p-8 text-center">
+    <Panel tab className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
       <HealthRing score={health} state={level} size={176} />
       <div className="flex min-h-24 flex-col items-center gap-3">
         {level === 'NORMAL' ? <LifecycleBadge state={lifecycle} /> : <AlertBadge cls={level} />}
@@ -382,10 +387,15 @@ function RulLine() {
 function SubsystemsPanel() {
   const subs = useSim((s) => s.snapshot?.analytics?.subsystems);
   return (
-    <Panel className="flex flex-col gap-5">
-      <span className="label">Subsystems</span>
-      <SubsystemBars items={subs ?? []} />
-      <span className="num text-label text-fg-3">— = not monitored while the engine is off</span>
+    <Panel className="flex flex-col gap-6 md:p-8">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <span className="label">Subsystems</span>
+        <span className="num text-label text-fg-3">— = not monitored while the engine is off</span>
+      </div>
+      <SubsystemBars
+        items={subs ?? []}
+        className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-6 md:grid-cols-2 xl:grid-cols-3"
+      />
     </Panel>
   );
 }
@@ -397,6 +407,7 @@ function Signals() {
   const exp = useSim((s) => s.snapshot?.expected);
   const f = useSim((s) => s.snapshot?.analytics?.features);
   const targetRpm = useUi((s) => s.targetRpm);
+  const loadNm = useUi((s) => s.load_Nm);
   const running = useSim((s) => isEngineRunning(s.snapshot));
   const spectral = useSim((s) => s.snapshot?.analytics?.spectral);
   const sanity = useSim((s) => s.snapshot?.analytics?.sanity);
@@ -424,10 +435,15 @@ function Signals() {
     : 'ok';
 
   return (
-    <Stagger className="grid grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2 xl:grid-cols-3">
-      <StaggerItem>
+    // the tachometer takes two rows beside the six bar gauges (2 + 6 = 8 cells: 2 columns, or 4 on wide screens)
+    <Stagger className="grid grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <StaggerItem className="sm:row-span-2">
         <Gauge
           label="Engine speed"
+          icon={signalIcon.rpm}
+          variant="dial"
+          dialScale={1000}
+          dialUnit="×1000 r/min"
           onMath={() => set({ math: 'rpm' })}
           unit="rpm"
           value={tel.rpm}
@@ -440,8 +456,23 @@ function Signals() {
         />
       </StaggerItem>
       <StaggerItem>
+        {/* load is an input the Twin is driven by, so its reference is the commanded load, not a prediction */}
+        <Gauge
+          label="Engine load"
+          icon={signalIcon.load}
+          unit="%"
+          value={tel.load * 100}
+          expected={running ? Math.min(100, (100 * loadNm) / maxTorque_Nm(targetRpm)) : 0}
+          min={0}
+          max={100}
+          status="ok"
+          quality="valid"
+        />
+      </StaggerItem>
+      <StaggerItem>
         <Gauge
           label="Coolant"
+          icon={signalIcon.coolant}
           onMath={() => set({ math: 'coolant' })}
           unit="°C"
           value={tel.coolantC}
@@ -461,6 +492,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Oil temp"
+          icon={signalIcon.oilTemp}
           onMath={() => set({ math: 'oilTemp' })}
           unit="°C"
           value={tel.oilC}
@@ -476,6 +508,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Oil pressure"
+          icon={signalIcon.oilPress}
           onMath={() => set({ math: 'oilPress' })}
           unit="bar"
           value={tel.oilPressBar}
@@ -493,6 +526,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Voltage"
+          icon={signalIcon.voltage}
           onMath={() => set({ math: 'voltage' })}
           unit="V"
           value={tel.busV}
@@ -509,6 +543,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Vibration RMS"
+          icon={signalIcon.vibration}
           onMath={() => set({ math: 'vibration' })}
           unit="m/s²"
           value={spectral?.vib.rms ?? 0}

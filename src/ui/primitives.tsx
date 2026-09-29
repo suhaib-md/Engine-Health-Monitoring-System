@@ -1,4 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import type { Status } from './tokens';
 
 export const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
 
@@ -201,5 +203,41 @@ export function Toggle({
       </span>
       {children}
     </button>
+  );
+}
+
+const tileText: Record<Status | 'accent', string> = {
+  accent: 'text-accent',
+  ok: 'text-ok',
+  watch: 'text-watch',
+  warn: 'text-warn',
+  crit: 'text-crit',
+  invalid: 'text-invalid',
+};
+
+/**
+ * Small square icon tile (the dashboard look): cyan brand tint when calm, the status colour
+ * once the thing it labels is in trouble. Status colours stay reserved for state.
+ */
+export function IconTile({
+  icon: Icon,
+  tone = 'accent',
+  size = 'md',
+}: {
+  icon: LucideIcon;
+  tone?: Status | 'accent';
+  size?: 'sm' | 'md';
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cx(
+        'inline-flex shrink-0 items-center justify-center border border-line bg-raised',
+        size === 'md' ? 'size-9' : 'size-7',
+        tileText[tone],
+      )}
+    >
+      <Icon className={size === 'md' ? 'size-[18px]' : 'size-4'} strokeWidth={2} />
+    </span>
   );
 }

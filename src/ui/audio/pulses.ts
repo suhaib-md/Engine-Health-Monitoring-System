@@ -1,4 +1,54 @@
 import { PROFILE } from '../../engine/profile';
+import type { Rng } from '../../lib/rng';
+
+/**
+ * One loop of exhaust pressure at `refRpm`: `cycles` four-stroke cycles, a blowdown pulse per
+ * firing in the order 1-3-4-2, scaled by that cylinder's measured firing strength. The player
+ * pitches the loop to the real speed, which also shortens each pulse the way a real blowdown
+ * shortens (it lasts a fixed crank angle, about 60°, not a fixed time).
+ *
+ * Pulse = gamma-shaped pressure rise and decay, then a rarefaction dip as the gas column
+ * overshoots, with turbulent noise riding on the same envelope. Each firing varies a little in
+ * size and timing (no two combustion events are identical), which is most of what makes a
+ * synthetic engine sound less like a buzzer.
+ */
+export function exhaustLoop(
+  sampleRate: number,
+  strengths: Record<1 | 2 | 3 | 4, number>,
+  rng: Rng,
+  refRpm = 1500,
+  cycles = 16,
+): Float32Array {
+  const cycle_s = 120 / refRpm; // 720° of crank
+  const n = Math.round(cycle_s * cycles * sampleRate);
+  const d = new Float32Array(n);
+  const order = PROFILE.geometry.firingOrder;
+  const blowdown_s = (60 / 360) * (60 / refRpm); // ≈ 60° of crank at refRpm
+  const tau = blowdown_s / 3; // gamma peak at 2τ
+  const len = Math.round(blowdown_s * 4 * sampleRate);
+  let noiseLp = 0;
+  for (let c = 0; c < cycles; c++) {
+    for (let k = 0; k < 4; k++) {
+      const s = strengths[order[k]!] ?? 1;
+      if (s < 0.02) continue;
+      const amp = s * (1 + 0.08 * (rng.next() * 2 - 1));
+      const jitter = 0.03 * (cycle_s / 4) * (rng.next() * 2 - 1);
+      const start = Math.round((c * cycle_s + (k * cycle_s) / 4 + jitter) * sampleRate);
+      for (let i = 0; i < len; i++) {
+        const t = i / sampleRate;
+        const x = t / tau;
+        const push = (x * x * Math.exp(2 - x)) / 4; // peak 1 at x = 2
+        const xr = (t - 2.2 * blowdown_s) / (1.2 * tau);
+        const dip = xr > 0 ? -0.35 * xr * Math.exp(1 - xr) : 0;
+        noiseLp += 0.35 * (rng.next() * 2 - 1 - noiseLp); // lightly low-passed turbulence
+        const env = push + Math.abs(dip);
+        const j = (start + i + n) % n; // wrap, so the loop is seamless
+        d[j]! += amp * (push + dip + 0.45 * env * noiseLp);
+      }
+    }
+  }
+  return d;
+}
 
 /**
  * Firing strength per cylinder from a MEASURED crank-speed window (the engine sound's source).

@@ -1,6 +1,7 @@
 import type { AlertClass, Status } from './tokens';
 import { alertStatus, evidenceClass } from './tokens';
 import { AlertBadge, statusBg, statusBorderLeft, statusText } from './status';
+import { alertIcon } from './icons';
 
 /** Explanation card — follows draft §35.5 exactly. Amendment A: 24px section padding. */
 export interface Explanation {
@@ -92,11 +93,13 @@ export interface AlertRow {
 
 export function AlertItem({ a, compact }: { a: AlertRow; compact?: boolean }) {
   const st = alertStatus[a.cls];
+  const Icon = alertIcon[a.cls];
   return (
     <div
       className={`grid animate-alert-in grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 border border-line border-l-4 bg-panel px-5 py-4 ${statusBorderLeft[st]}`}
     >
       <div className="flex min-w-0 items-center gap-2.5">
+        <Icon aria-hidden className={`size-4 shrink-0 ${statusText[st]}`} />
         <span className={`font-mono text-label font-extrabold tracking-[0.08em] ${statusText[st]}`}>
           {a.cls}
         </span>
