@@ -1,5 +1,5 @@
 import { ANALYTICS } from './config';
-import type { AlertLevel } from './types';
+import type { AlertLevel, FaultKind } from './types';
 
 /**
  * Hysteresis + persistence (draft §23). Never alert on one noisy sample:
@@ -77,3 +77,29 @@ export class HysteresisMachine {
 }
 
 export const levelRank = (l: AlertLevel) => LEVELS.indexOf(l);
+
+/** The subsystem each fault kind belongs to, by its display name (matches the health bars). */
+const FAULT_SUBSYSTEM: Record<FaultKind, string> = {
+  cooling: 'Thermal',
+  lubrication: 'Lubrication',
+  charging: 'Electrical',
+  combustion: 'Combustion',
+  sensor: 'Sensor integrity',
+};
+
+/**
+ * Q-57: the overall health is a weighted average, so it can look mild beside one failing
+ * subsystem. Whenever the overall alert level is WARNING or CRITICAL, name the subsystem that
+ * drives it (the highest level, ties broken by evidence score). Null while NORMAL or WATCH.
+ */
+export function limitedBy(
+  levels: Record<FaultKind, AlertLevel>,
+  overall: AlertLevel,
+  scores: Partial<Record<FaultKind, number>> = {},
+): string | null {
+  if (levelRank(overall) < levelRank('WARNING')) return null;
+  const driver = (Object.keys(levels) as FaultKind[])
+    .filter((k) => levels[k] === overall)
+    .sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0))[0];
+  return driver ? FAULT_SUBSYSTEM[driver] : null;
+}

@@ -157,7 +157,12 @@ function ReportSheet({
           {/* KPIs */}
           <div className="grid grid-cols-4 border border-rule">
             {[
-              ['OVERALL HEALTH', a.overallHealth.toFixed(1)],
+              [
+                'OVERALL HEALTH',
+                a.limitedBy
+                  ? `${a.overallHealth.toFixed(1)} · limited by ${a.limitedBy}`
+                  : a.overallHealth.toFixed(1),
+              ],
               ['EVIDENCE', e ? `${e.evidence.toFixed(2)} · ${e.uncertainty.evidence}` : '—'],
               [
                 'RUL BAND',

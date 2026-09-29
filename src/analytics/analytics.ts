@@ -9,7 +9,7 @@ import { STAT_LABEL, Statistics, type StatChannel, type StatsState } from './sta
 import { RulEstimator, type RulEstimate } from './rul';
 import { diagnose } from './diagnosis';
 import { criticalOverride, overallHealth, subsystemHealth, subsystemRisks } from './health';
-import { HysteresisMachine, levelRank } from './alerts';
+import { HysteresisMachine, levelRank, limitedBy } from './alerts';
 import { buildEarlyWarning, buildExplanation, type ExplainContext } from './explain';
 import { riskHigh, riskLow } from './risk';
 import type {
@@ -57,6 +57,8 @@ export interface AnalyticsState {
   overallHealth: number;
   subsystems: SubsystemHealth[];
   overallLevel: AlertLevel;
+  /** Q-57: the subsystem driving a WARNING/CRITICAL level, shown beside the overall health */
+  limitedBy: string | null;
   levels: Record<FaultKind, AlertLevel>;
   /** a statistical alarm (D² or CUSUM) is active */
   statWatch: boolean;
@@ -315,6 +317,11 @@ export class Analytics {
       overallHealth: overallHealth(risks),
       subsystems,
       overallLevel,
+      limitedBy: limitedBy(
+        levels,
+        overallLevel,
+        Object.fromEntries(evidence.map((e) => [e.id, e.score])),
+      ),
       levels,
       statWatch,
       alerts: [...this.alerts],

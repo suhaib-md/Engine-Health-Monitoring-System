@@ -338,6 +338,11 @@ function HealthPanel() {
   return (
     <Panel tab className="flex h-full flex-col items-center justify-center gap-6 p-8 text-center">
       <HealthRing score={health} state={level} size={176} />
+      {a?.limitedBy && (
+        <span className="num -mt-2 text-xs text-fg-2">
+          limited by <b className="text-fg">{a.limitedBy}</b>
+        </span>
+      )}
       <div className="flex min-h-24 flex-col items-center gap-3">
         {level === 'NORMAL' ? <LifecycleBadge state={lifecycle} /> : <AlertBadge cls={level} />}
         <AnimatePresence mode="wait">
