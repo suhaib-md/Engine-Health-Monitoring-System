@@ -12,6 +12,7 @@ import {
 } from './cooling';
 import { oilPressure_bar, oilTempRate_Kps } from './oil';
 import { busVoltage_V } from './electrical';
+import { ALL_FIRING, type CombustionHealth } from './crankTorque';
 
 /**
  * The slow (20 Hz) engine model: every Phase 1 equation composed into one pure evaluate/step
@@ -39,6 +40,8 @@ export interface HealthFactors {
   bearingWear: number;
   lubeDegradation: number;
   alternator: number;
+  /** combustion health of cylinders 1..4 (1 = fires normally, 0 = complete misfire) */
+  combustion: CombustionHealth;
 }
 
 export const HEALTHY: HealthFactors = Object.freeze({
@@ -47,6 +50,7 @@ export const HEALTHY: HealthFactors = Object.freeze({
   bearingWear: 0,
   lubeDegradation: 0,
   alternator: 1,
+  combustion: ALL_FIRING,
 });
 
 export interface EngineOutputs {

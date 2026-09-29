@@ -91,6 +91,7 @@ const truth = (over: Partial<TrueSignals> = {}): TrueSignals => ({
   oilPressBar: 3.2,
   busV: 14.2,
   fanOn: false,
+  torqueCmdNm: 111,
   ...over,
 });
 

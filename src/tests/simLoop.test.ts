@@ -16,10 +16,17 @@ describe('determinism', () => {
   const record = (seed: number) => {
     const loop = new SimLoop(seed);
     coldStartTo(loop, 3000, 80);
-    const out: Telemetry[] = [];
+    const out: (Omit<Telemetry, 'crankSpeedWindow' | 'vibWindow'> & { win: number[] | null })[] =
+      [];
     for (let i = 0; i < 600; i++) {
       loop.advanceSim(1);
-      out.push({ ...loop.telemetry });
+      const { crankSpeedWindow, vibWindow, ...rest } = loop.telemetry;
+      // the 8,192-sample windows are compared by checksum (a deep equality over them is very slow)
+      const sum = (w?: Float32Array) => (w ? w.reduce((a, x) => a + x, 0) : 0);
+      out.push({
+        ...rest,
+        win: crankSpeedWindow && vibWindow ? [sum(crankSpeedWindow), sum(vibWindow)] : null,
+      });
     }
     return out;
   };
@@ -104,8 +111,9 @@ describe('time-warp and pause', () => {
     const t0 = performance.now();
     loop.advanceSim(3600);
     const ms = performance.now() - t0;
-    // 60× needs 1 simulated hour per wall minute; demand ≥ 20× headroom on top of that
-    // (the loop now includes analytics, and CI workers run tests in parallel).
-    expect(ms).toBeLessThan(60_000 / 20);
+    // 60× needs 1 simulated hour per wall minute. The loop now also builds and analyses a
+    // 16-revolution crank-angle window every simulated second (Phase 7), so demand ≥ 10× headroom
+    // (measured ≈ 14×; the tests also run in parallel workers).
+    expect(ms).toBeLessThan(60_000 / 10);
   });
 });

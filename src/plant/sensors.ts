@@ -114,6 +114,7 @@ export class SensorModel {
       oilPressBar: read('oilPressBar'),
       busV: read('busV'),
       fanOn: truth.fanOn,
+      torqueCmdNm: truth.torqueCmdNm,
     };
   }
 }

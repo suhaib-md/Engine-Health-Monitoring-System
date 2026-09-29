@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ScenarioId } from '../worker/protocol';
 
 /** UI-only state: navigation and test-bench controls. Simulation state comes from the worker (sim/simClient.ts). */
 
@@ -24,12 +25,12 @@ export type FaultMode = 'gradual' | 'instant';
 export const FAULTS = [
   { id: 'oilPump', label: 'Oil-pump wear', phase: 3, gain: 0.75 },
   { id: 'cooling', label: 'Cooling degradation', phase: 3, gain: 0.8 },
-  { id: 'misfire3', label: 'Cylinder 3 misfire', phase: 7, gain: 1 },
+  { id: 'misfire', label: 'Cylinder misfire', phase: 7, gain: 1 },
   { id: 'bearing', label: 'Bearing wear', phase: 9, gain: 1 },
   { id: 'alternator', label: 'Alternator fault', phase: 9, gain: 1 },
   { id: 'coolantSensor', label: 'Coolant sensor spike', phase: 9, gain: 1 },
 ] as const;
-export const AVAILABLE_PHASE = 4;
+export const AVAILABLE_PHASE = 7;
 
 export type FaultId = (typeof FAULTS)[number]['id'];
 
@@ -42,9 +43,12 @@ interface UiState {
   load_Nm: number;
   ambient_C: number;
   fault: FaultId;
+  /** which cylinder the misfire fault hits */
+  cylinder: 1 | 2 | 3 | 4;
   severity: number;
   faultMode: FaultMode;
   blind: boolean;
+  scenario: ScenarioId;
   set: (patch: Partial<Omit<UiState, 'set'>>) => void;
 }
 
@@ -62,8 +66,10 @@ export const useUi = create<UiState>((set) => ({
   load_Nm: 80,
   ambient_C: 30,
   fault: 'oilPump',
+  cylinder: 3,
   severity: 0.6,
   faultMode: 'gradual',
   blind: false,
+  scenario: 'hero',
   set: (patch) => set(patch),
 }));

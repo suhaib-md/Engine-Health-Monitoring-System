@@ -3,7 +3,10 @@ import type { Telemetry } from '../telemetry';
 import {
   HEALTHY,
   evaluateEngine,
+  healthyRipplePP_rpm,
+  healthyVibRms_ms2,
   maxTorque_Nm,
+  resistTorque_Nm,
   stepThermal,
   type OperatingPoint,
   type ThermalState,
@@ -23,6 +26,14 @@ export interface TwinExpected {
   oilPressBar: number;
   busV: number;
   fanOn: boolean;
+  /** mean resisting torque of a healthy engine at this operating point, N·m */
+  resistNm: number;
+  /** governor command of a healthy engine (= resisting torque with all four cylinders firing), N·m */
+  torqueCmdNm: number;
+  /** RMS of the healthy vibration signal, m/s² */
+  vibRmsMs2: number;
+  /** peak-to-peak crank-speed ripple of a healthy engine, rpm */
+  ripplePPRpm: number;
 }
 
 export class Twin {
@@ -69,6 +80,7 @@ export class Twin {
     this.lastT = tel.t;
 
     const out = evaluateEngine(this.state, op, HEALTHY, this.p);
+    const resist = resistTorque_Nm(out.brakeTorque_Nm, out.frictionTorque_Nm, op.rpm, this.p);
     return {
       t: tel.t,
       coolantC: this.state.coolant_C,
@@ -76,6 +88,10 @@ export class Twin {
       oilPressBar: out.oilPress_bar,
       busV: out.busV,
       fanOn: this.state.fanOn,
+      resistNm: resist,
+      torqueCmdNm: resist,
+      vibRmsMs2: healthyVibRms_ms2(op.rpm, resist, this.p),
+      ripplePPRpm: healthyRipplePP_rpm(op.rpm, resist, this.p),
     };
   }
 }

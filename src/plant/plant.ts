@@ -3,8 +3,12 @@ import type { Lifecycle } from '../lifecycle';
 import {
   HEALTHY,
   evaluateEngine,
+  governorCommand_Nm,
   loadFraction,
+  resistTorque_Nm,
   stepThermal,
+  type CombustionHealth,
+  type CrankInput,
   type HealthFactors,
   type ThermalState,
 } from '../physics';
@@ -18,7 +22,9 @@ import { clamp } from '../lib/math';
 export type FanMode = 'auto' | 'on' | 'off';
 
 /** Mechanical faults the Plant can develop (sensor faults live in the sensor model). */
-export type PlantFaultId = 'cooling' | 'oilPump';
+export type MisfireFaultId = 'misfire1' | 'misfire2' | 'misfire3' | 'misfire4';
+export type PlantFaultId = 'cooling' | 'oilPump' | MisfireFaultId;
+const MISFIRE_IDS: readonly MisfireFaultId[] = ['misfire1', 'misfire2', 'misfire3', 'misfire4'];
 export type FaultOnset = 'gradual' | 'instant';
 
 interface ActiveFault {
@@ -46,6 +52,8 @@ export interface TrueSignals {
   oilPressBar: number;
   busV: number;
   fanOn: boolean;
+  /** speed-governor torque command (null while not firing) */
+  torqueCmdNm: number | null;
 }
 
 export interface PlantState {
@@ -114,11 +122,16 @@ export class Plant {
   private updateHealth() {
     const fp = this.p.faults;
     const pump = 1 - fp.pumpSeverityGain * this.severity('oilPump');
+    // S = 1 is a complete misfire of that cylinder: H_comb,i = 1 − S (draft §13.1)
+    const combustion = MISFIRE_IDS.map(
+      (id) => 1 - this.severity(id),
+    ) as unknown as CombustionHealth;
     this.health = {
       ...HEALTHY,
       cooling: 1 - fp.coolingSeverityGain * this.severity('cooling'),
       pump,
       lubeDegradation: clamp(fp.lubeFromPumpGain * (1 - pump), 0, 1),
+      combustion,
     };
   }
 
@@ -213,11 +226,33 @@ export class Plant {
     };
   }
 
+  /** True while the engine fires (cranking and coasting down produce no combustion windows). */
+  get firing() {
+    return this.state.lifecycle === 'WARMUP' || this.state.lifecycle === 'RUNNING';
+  }
+
+  /** Mean resisting torque at the current operating point: brake + friction + accessories. */
+  private resistTorque() {
+    const out = evaluateEngine(this.state.thermal, this.operatingPoint(), this.health, this.p);
+    return resistTorque_Nm(out.brakeTorque_Nm, out.frictionTorque_Nm, this.state.rpm, this.p);
+  }
+
+  /** Input for the crank-angle model; null unless the engine is firing above the running speed. */
+  crankInput(): CrankInput | null {
+    if (!this.firing || this.state.rpm < 0.8 * this.p.speed.idle_rpm) return null;
+    return {
+      rpm: this.state.rpm,
+      resist_Nm: this.resistTorque(),
+      health: this.health.combustion,
+    };
+  }
+
   /** Noise-free physical values at the current state. */
   truth(): TrueSignals {
     const s = this.state;
     const op = this.operatingPoint();
     const out = evaluateEngine(s.thermal, op, this.health, this.p);
+    const cmdOk = this.firing && s.rpm >= 0.8 * this.p.speed.idle_rpm;
     return {
       t: s.t,
       rpm: s.rpm,
@@ -228,6 +263,12 @@ export class Plant {
       oilPressBar: out.oilPress_bar,
       busV: out.busV,
       fanOn: s.thermal.fanOn,
+      torqueCmdNm: cmdOk
+        ? governorCommand_Nm(
+            resistTorque_Nm(out.brakeTorque_Nm, out.frictionTorque_Nm, s.rpm, this.p),
+            this.health.combustion,
+          )
+        : null,
     };
   }
 }

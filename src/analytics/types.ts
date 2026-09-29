@@ -6,7 +6,7 @@ export type Status = 'ok' | 'watch' | 'warn' | 'crit' | 'invalid';
 export type AlertClass = 'INFO' | 'WATCH' | 'WARNING' | 'CRITICAL';
 export type AlertLevel = 'NORMAL' | Exclude<AlertClass, 'INFO'>;
 
-export type FaultKind = 'cooling' | 'lubrication' | 'charging';
+export type FaultKind = 'cooling' | 'lubrication' | 'charging' | 'combustion';
 export type SubsystemId =
   'lubrication' | 'thermal' | 'vibration' | 'combustion' | 'electrical' | 'sensors';
 

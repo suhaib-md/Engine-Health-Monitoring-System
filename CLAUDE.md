@@ -32,7 +32,7 @@ IgniSense is a browser-only digital twin of a 2.0 L inline-4 petrol engine. A **
 - **Fonts:** Space Grotesk (UI) + JetBrains Mono (every number/label, `num` utility for tabular figures). Self-hosted via @fontsource, so the app works offline.
 - **Airy (Amendment A, overrides the original handoff):** 24/40px page gutters, max width 1440px, 24px gaps between regions, 24px+ panel padding, a numbered section header on each page, and one idea per view. Test-bench controls live in a slide-in drawer, not a sidebar.
 - **Motion:** `motion` (`motion/react`). Page transitions, sliding tab indicator, scroll-reveal stagger, spring drawer, hover lift. Shared presets are in `src/ui/motion.tsx`. **Live numbers never tween**; only geometry animates. `MotionConfig reducedMotion="user"` plus the CSS reduced-motion rule.
-- **Live data:** Live Twin, Trends, the header, the test bench and Debug are live from the worker (`src/ui/sim/`). Only Vibration (Phase 7) and Report (Phase 10) still show labelled sample content. A zustand selector must never return a fresh `[]`/`{}` (it re-renders forever); use a module-level constant.
+- **Live data:** Live Twin, Trends, Vibration, the header, the test bench and Debug are live from the worker (`src/ui/sim/`). Only Report (Phase 10) still shows labelled sample content. A zustand selector must never return a fresh `[]`/`{}` (it re-renders forever); use a module-level constant.
 
 ---
 
@@ -81,12 +81,13 @@ src/
   lib/         rng (seeded), small math utils; importable from anywhere
   physics/     pure equations + equation registry (Show the math)
   engine/      profile.ts: every parameter, units in the name (bore_m, uaFan_WperK)
-  plant/       state + fault states, sensor model (noise, bias, drift, dropout, stuck, spike)
+  plant/       state + fault states, sensor model (noise, bias, drift, dropout, stuck, spike), crank.ts (crank-speed and accelerometer windows)
   twin/        healthy reference: same physics, all health = 1
   analytics/   residuals, features, fft, mahalanobis, cusum, diagnosis, health, rul, alerts
   sources/     simSource, replaySource (CSV), serialSource (ESP32 / OBD-II stub)
-  worker/      simLoop.ts (testable loop: source -> twin -> analytics), sim.worker.ts (thin Worker
-               wrapper, 20 Hz snapshots), protocol.ts (Command / Snapshot types)
+  worker/      simLoop.ts (testable loop: source -> twin -> analytics, runs scenarios on the simulated clock),
+               scenarios.ts (hero + overheat scripts), sim.worker.ts (thin Worker wrapper, 20 Hz snapshots),
+               protocol.ts (Command / Snapshot types)
   three/       EngineScene (Canvas, offline Lightformer environment, contact shadows, grid, fog, bloom,
                camera rig, fps probe; lazy-loaded), Engine (procedural I4 driven each frame from
                physics/sliderCrank + physics/cycle), geometry.ts (lathe/extrude/tube part builders),
@@ -100,7 +101,8 @@ src/
     pages/       LiveTwin, Trends, Vibration, Math, Validation, Report, Debug (live sim table)
     sim/         simClient.ts (worker, `useSim`, `sendSim`, control sync), history.ts (chart ring buffer, outside React)
     format.ts    clock + residual → status helpers
-    charts/      LiveChart.tsx (uPlot, transient 4 Hz redraw) + SVG previews for Vibration
+    ScenarioBar.tsx  hero-scenario button + narration strip
+    charts/      LiveChart.tsx (uPlot, transient 4 Hz redraw), VibrationCharts.tsx (order spectrum, misfire polar, crank waveforms)
   tests/       cross-module/scenario tests (unit tests sit next to their files as *.test.ts)
 docs/          source documents, open questions, calibration log
 ```
@@ -172,7 +174,9 @@ npm run preview      # serve the build locally (offline demo)
 
 **Electrical** (draft §14): V = V_bat + H_alt·g(N)(V_reg − V_bat) − ΔV_load + noise. Provisional: V_bat 12.6, V_reg 14.4, g(N) = 1 − e^(−N/600), ΔV_load 0.2 V (Q-11).
 
-**Physics code map:** `src/physics/` = basics, torque, friction, energy, cooling, oil, electrical (pure functions + registry) and `engineModel.ts` (`evaluateEngine` / `stepThermal`, the composed slow model that Plant and Twin both call, with `HealthFactors`). All chosen values and reasons are in `docs/calibration.md`.
+**Crank and vibration** (Phase 7, provisional, Q-12/Q-13): mount factor 0.1, block mass 150 kg (2× line at the sensor = 0.1·F₂/150), 1× = 5 % of the 2× line, rocking gain 0.008 (m/s²)/(N·m), accelerometer σ 0.03 m/s², crank-speed σ 1 rpm. Misfire ramps in `ANALYTICS.misfire` (ripple ×1.6→×4, missing torque 0.15→0.5, vibration ×1.3→×2.5, command ×1.05→×1.25).
+
+**Physics code map:** `src/physics/` = basics, torque, friction, energy, cooling, oil, electrical, sliderCrank, cycle, crankTorque, vibration (pure functions + registry) and `engineModel.ts` (`evaluateEngine` / `stepThermal`, the composed slow model that Plant and Twin both call, with `HealthFactors`). All chosen values and reasons are in `docs/calibration.md`.
 
 **Sensor model** (draft §15): y = x + b + d(t) + ε, plus dropout (null), stuck, spike, bias and drift. σ: rpm 5, load 0.004, ambient 0.1 °C, coolant 0.2 °C, oil 0.3 °C, pressure 0.03 bar, bus 0.03 V (`PROFILE.sensors`, calibration.md).
 
@@ -228,9 +232,9 @@ Use a relative tolerance of ~2 % (these came from a Python sim with rounding). I
 | Loop | Rate |
 | --- | --- |
 | Slow physics | 20 Hz simulated (Δt = 0.05 s) × time-warp (1×, 10×, 60×) |
-| Crank angle | 0.5° steps, run in chunks each slow tick |
+| Crank angle | 0.5° steps; one 720° cycle is integrated and tiled into a 16-revolution window once per simulated second |
 | Analytics | 5–10 Hz |
-| FFT | every 1 s over a 16-revolution window, crank-angle domain (order tracking) |
+| FFT | every 1 s over a 16-revolution window, crank-angle domain (order tracking), 512 samples/rev = 8,192 points, one packed complex FFT for both signals |
 | UI snapshot | 20 Hz postMessage |
 | 3D render | 60 fps, interpolating crank angle; display slowed 100× (labelled on screen) |
 
@@ -358,27 +362,31 @@ Doc: review *Three.js virtual engine plan*, *Piston motion*; draft §35.2.
 ### Phase 6: Hero scenario, then MINIMUM VIABLE DEMO gate
 Doc: review *Demo script* steps 1–3; draft §54. Open question: Q-22.
 
-- [ ] One-click hero scenario with a fixed seed: cold start → time-warp warm-up → oil-pump fault develops → diagnosis
-- [ ] Cold-start oil pressure ≈ 2.5 bar visibly settling as oil warms
+- [x] One-click hero scenario with a fixed seed: cold start → time-warp warm-up → oil-pump fault develops → diagnosis
+- [x] Cold-start oil pressure ≈ 2.5 bar visibly settling as oil warms
 
 **GATE:** Run the hero scenario 3× end to end. It must look identical each time. Everything above the "Minimum viable demo line" in the review's cut list must work. **Stop and get the user's sign-off before Phase 7.**
+
+✅ Built `worker/scenarios.ts` (hero and overheat scripts) run by `SimLoop` on the simulated clock, a one-click **Run hero scenario** button, a narration strip (step dots, title, caption, restart/stop) and a scenario picker in the test bench. Cold start at 20 °C reads 2.54 bar and settles to about 1.6 bar at hot idle; warm-up at 60× takes about 30 s of wall time; the fault ramps in under 10× warp; the card names 'Lubrication-system degradation'. **Gate:** the hero run is identical on three runs at 1×, 10× and 100× chunking (telemetry samples every 20 s, step times and alert list all equal), plus a second play in the same loop; checked once end to end in a real browser (Edge over CDP, no console errors). The user asked to continue straight into Phase 7, so no separate sign-off pause was taken.
 
 ---
 
 ### Phase 7: Crank-angle simulation, vibration, misfire
 Doc: review *New physics: one crank angle drives everything*; draft §11, §13, §30. Open questions: Q-12, Q-13, Q-14.
 
-- [ ] `physics/crankTorque.ts`: half-sine pulse per cylinder, A = 2π·T̄_cyl, H_comb,i, ω integration at 0.5°
-- [ ] PI speed governor once per cycle
-- [ ] Chunked crank sim in the worker; fill `crankSpeedWindow`
-- [ ] Vibration synthesis: 2× from F₂, 0.5×/1.5× combustion, 1× imbalance, impulses + noise; fill `vibWindow`
-- [ ] `analytics/fft.ts` (own radix-2), crank-angle order spectrum; RMS, peak, crest factor, kurtosis, I_rpm (draft §11, §13.2)
-- [ ] Half-order amplitude + phase → misfiring cylinder
-- [ ] Vibration page: waveform, order spectrum with 0.5×/1×/2× cursors, crank ripple, **misfire polar plot**
-- [ ] 3D: combustion flash per cylinder (missing when misfiring), F₂ block shake
-- [ ] Real vibration RMS into the gauge; misfire evidence score into diagnosis
+- [x] `physics/crankTorque.ts`: half-sine pulse per cylinder, A = 2π·T̄_cyl, H_comb,i, ω integration at 0.5°
+- [x] PI speed governor once per cycle
+- [x] Chunked crank sim in the worker; fill `crankSpeedWindow`
+- [x] Vibration synthesis: 2× from F₂, 0.5×/1.5× combustion, 1× imbalance, impulses + noise; fill `vibWindow`
+- [x] `analytics/fft.ts` (own radix-2), crank-angle order spectrum; RMS, peak, crest factor, kurtosis, I_rpm (draft §11, §13.2)
+- [x] Half-order amplitude + phase → misfiring cylinder
+- [x] Vibration page: waveform, order spectrum with 0.5×/1×/2× cursors, crank ripple, **misfire polar plot**
+- [x] 3D: combustion flash per cylinder (missing when misfiring), F₂ block shake
+- [x] Real vibration RMS into the gauge; misfire evidence score into diagnosis
 
 **Exit checks:** Every misfire golden row within 2 % (phases and 4/3 ratio included). F₂ golden values pass. The polar dot lands in the correct sector for all four cylinders. Real-time at 6,000 rpm.
+
+✅ `physics/crankTorque.ts` (half-sine pulses, ω in crank angle, governor fixed point, closed-form ripple / 0.5× amplitude / phase), `physics/vibration.ts` (F₂, healthy RMS, synthesis), `plant/crank.ts` (sensor noise), `analytics/fft.ts` (own radix-2 FFT, order spectrum, packed two-signal transform) and `analytics/spectral.ts` (RMS, peak, crest, kurtosis, I_rpm, 0.5× amplitude and phase → cylinder and missing torque). Misfire evidence joins diagnosis with the draft weights (Q-40) and alerts, vibration and combustion join subsystem health, the Twin now expects vibration RMS, ripple and torque command, and the Vibration page is live (metrics, order spectrum with 0.5×/1×/2× cursors, misfire polar, both waveforms). 3D: the diagnosed cylinder's flash fades (Q-42) and the block shakes with F₂. Test bench: cylinder misfire with a cylinder selector. **All review goldens reproduce** (see docs/calibration.md): F₂ 179 / 2,517 / 10,068 N; ripple 11 / 61 / 32 rpm; 0.5× amplitude 21.0 / 9.0 rpm; phases +45 / +135 / −45 / −135°; command 110 → 146 N·m (4/3). All four cylinders land in the right sector end to end at 800, 3,000 and 6,000 rpm. A window costs about 0.9 ms, so 60× is real-time with margin. The Validation page now has 22 live rows, all passing. Checked in a real browser: healthy vibration ×1.00, cylinder 3 misfire named with phase −45°, amplitude 21.3 rpm, command ×1.32, evidence 0.80. Open: Q-39 – Q-45.
 
 ---
 
@@ -468,3 +476,5 @@ _One line per completed phase: date, phase, result, open issues._
 - 2026-09-29: **Phases 3 & 4 complete.** Phase 3: progressive Plant faults (cooling, oil pump + lubrication degradation); `analytics/` = EMA residuals, context-corrected pressure (resolves Q-32), draft-weighted evidence scores, subsystem/overall health with critical overrides, hysteresis alert machines, alert log, draft §35.5 explanation; runs at 10 Hz in the worker. Phase 4: removed all sample data from Live Twin/Trends; live gauges with Twin ghosts and residual-coloured status, health ring, subsystem bars, animated explanation card and alert list, part panels from live residuals, uPlot Trends (both-direction residual band, fault and alert markers), test-bench inject/repair. 85 tests; lint/typecheck/build clean; end-to-end fault run verified in a real browser. New Q-34/Q-35. Next: Phase 5 (3D engine).
 - 2026-09-29: **Phase 5 complete (fps pending a GPU check).** `physics/sliderCrank.ts` (x(θ), φ, a(θ), throw offsets; 2 equations registered) + procedural three.js inline-4 (45 meshes) driven each frame from the equation at 1/100 display speed, with no React state in the loop. Coolant heat-map, oil-gallery glow from pressure, pulsing status overlay on faulty subsystems, clickable parts → part panel, 4 animated camera presets incl. explode, projected DOM callouts (Q-37), live fps/mesh readout. three.js is lazy-loaded (separate 934 kB chunk; main bundle unchanged). 97 tests; lint/typecheck/build clean. Timing test headroom relaxed 50× → 20× (analytics in the loop + parallel workers).
 - 2026-09-29: **Phase 5 visual upgrade (user feedback: 'make it look realistic and cool').** Detailed procedural parts: grooved pistons, I-beam rods, counterweighted crank, head with cam cover, twin camshafts and 8 valves driven by a new `physics/cycle.ts` (4-stroke phase, firing order 1-3-4-2, valve timing, combustion glow; 6 tests), per-cylinder firing flash + light, intake plenum, exhaust 4-into-1, finned radiator, shrouded fan, hoses, accessory belt. Offline studio environment (Lightformers, no HDR download), contact shadows, fading grid, fog, bloom, vignette. Heat-mapped block outline instead of solid boxes. Markers are now a status diamond; the label slides out on hover and stays open only for a faulty part, always opening away from the engine. 71 meshes. 103 tests; lint/typecheck/build clean. User measured 60 fps before the upgrade; re-check on the GPU (Q-36).
+- 2026-09-29: **Phase 6 complete (hero scenario).** Scripted scenarios run on the simulated clock inside the worker (`worker/scenarios.ts`); one-click **Run hero scenario**, narration strip and a scenario picker; controls mirror back to the sliders. Cold start reads 2.54 bar and settles as the oil warms; the oil-pump fault is diagnosed. Three runs at different chunkings are identical (tested); one full run checked in a real browser. New Q-43, Q-44.
+- 2026-09-29: **Phase 7 complete (crank angle, vibration, misfire).** Crank-angle torque model, vibration synthesis, own FFT with order tracking, misfire detection that names the cylinder from the 0.5× phase, live Vibration page with polar plot, vibration gauge, 3D flash suppression and F₂ shake, adaptive 3D quality (Q-36). All review goldens reproduce; every cylinder is named correctly through the whole chain. 182 tests; lint/typecheck/build clean. New Q-39 – Q-42, Q-45; Q-12/Q-13/Q-14/Q-22/Q-25 moved on. Next: Phase 8 (Show the math + blind mode).

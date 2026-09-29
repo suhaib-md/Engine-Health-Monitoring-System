@@ -1,6 +1,7 @@
 import { ANALYTICS, SUBSYSTEM_WEIGHTS } from './config';
 import { riskHigh, riskLow } from './risk';
 import type { Features } from './residuals';
+import type { SpectralFeatures } from './spectral';
 import type { FaultEvidence, SubsystemHealth, SubsystemId } from './types';
 
 /**
@@ -32,7 +33,11 @@ export function overallHealth(risks: SubsystemRisks): number {
   return w > 0 ? 100 * (1 - wr / w) : 100;
 }
 
-export function subsystemRisks(evidence: FaultEvidence[], f: Features): SubsystemRisks {
+export function subsystemRisks(
+  evidence: FaultEvidence[],
+  f: Features,
+  s: SpectralFeatures | null = null,
+): SubsystemRisks {
   const byId = (id: FaultEvidence['id']) => evidence.find((e) => e.id === id)?.score ?? 0;
   const coolant = f.channels.coolantC.measured;
   const absThermal =
@@ -43,9 +48,11 @@ export function subsystemRisks(evidence: FaultEvidence[], f: Features): Subsyste
     thermal: Math.max(byId('cooling'), absThermal),
     lubrication: byId('lubrication'),
     electrical: byId('charging'),
-    // Phase 7 adds vibration and combustion (crank-angle model)
-    vibration: null,
-    combustion: null,
+    // monitored once the crank-angle windows arrive (engine running)
+    vibration: s
+      ? riskHigh(s.ratios.rms, ANALYTICS.misfire.vibRatio.warn, ANALYTICS.misfire.vibRatio.crit)
+      : null,
+    combustion: s ? byId('combustion') : null,
     sensors: f.dropped.length / 4,
   };
 }

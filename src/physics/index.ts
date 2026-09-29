@@ -8,6 +8,8 @@ import { coolingEquations } from './cooling';
 import { oilEquations } from './oil';
 import { electricalEquations } from './electrical';
 import { sliderCrankEquations } from './sliderCrank';
+import { crankEquations } from './crankTorque';
+import { vibrationEquations } from './vibration';
 
 export * from './registry';
 export * from './basics';
@@ -20,6 +22,8 @@ export * from './electrical';
 export * from './engineModel';
 export * from './sliderCrank';
 export * from './cycle';
+export * from './crankTorque';
+export * from './vibration';
 
 export const EQUATIONS: readonly RegisteredEquation[] = [
   ...basicsEquations,
@@ -30,6 +34,8 @@ export const EQUATIONS: readonly RegisteredEquation[] = [
   ...oilEquations,
   ...electricalEquations,
   ...sliderCrankEquations,
+  ...crankEquations,
+  ...vibrationEquations,
 ];
 
 export const equationById = (id: string) => EQUATIONS.find((e) => e.id === id);

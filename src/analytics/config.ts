@@ -22,6 +22,22 @@ export const ANALYTICS = {
   pressRatio: { warn: 0.85, crit: 0.5 },
   /** absolute coolant limits for the thermal subsystem (draft §43 prototype values) */
   coolantAbs_C: { warn: 105, crit: 120 },
+  /**
+   * Misfire symptom ramps (engine-profile calibration values, never ISO limits): risk 0 at `warn`,
+   * 1 at `crit`. Ratios are measured / the healthy Twin's expectation at the same speed and load.
+   */
+  misfire: {
+    /** crank-speed ripple, peak to peak */
+    rippleRatio: { warn: 1.6, crit: 4 },
+    /** estimated missing fraction of the worst cylinder's torque, from the 0.5x amplitude */
+    missing: { warn: 0.15, crit: 0.5 },
+    /** vibration RMS */
+    vibRatio: { warn: 1.3, crit: 2.5 },
+    /** governor torque command */
+    cmdRatio: { warn: 1.05, crit: 1.25 },
+    /** below this missing fraction no cylinder is named */
+    nameAbove: 0.12,
+  },
   /** analytics treats the engine as running above this fraction of idle speed */
   runningRpmFraction: 0.8,
   /** ignore alerts for this long after the engine starts (warm-up transients) */
@@ -47,6 +63,13 @@ export const WEIGHTS = {
   cooling: { tempResidual: 0.4, tempRate: 0.2, fanIneffective: 0.15 },
   lubrication: { lowPressure: 0.35, pressureResidual: 0.2, oilTemp: 0.2, pressureDecay: 0.1 },
   charging: { voltageResidual: 1 },
+  /** draft section 20.2 misfire weights: rpm irregularity, firing spectrum, vibration, combustion (torque) */
+  combustion: {
+    rpmIrregularity: 0.35,
+    firingSpectrum: 0.25,
+    vibrationLevel: 0.2,
+    torqueCommand: 0.2,
+  },
 } as const;
 
 /** Subsystem health weights (draft §22). */

@@ -152,3 +152,35 @@ Code: [src/analytics/config.ts](../src/analytics/config.ts). All PROVISIONAL dem
 - Cooling health 0.5 at full load: cooling CRITICAL within 30 s; lubrication score stays 0.00.
 - Gradual cooling fault to 0.25 at 3,000 rpm: WARNING after 60 s, when coolant is only 2.3 °C above the Twin.
 - Pump health 0.85 (gradual): lube score 0.24 (weak). Catching this early is CUSUM's job (Phase 9).
+
+## Phase 6–7: hero scenario, crank-angle model, vibration
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Hero scenario: 20 °C ambient, idle warm-up at 60×, drive at 2,500 rpm / 55 N·m, oil-pump wear S = 0.6 gradual | PROVISIONAL | Cold 800 rpm at 20 °C reads the review's 2.54 bar (Q-44). 2,500 rpm / 55 N·m is draft §54's warm steady state. Warm-up at idle ends at T+29 min (about 30 s of wall time at 60×) |
+| Scenario steps fire on the simulated clock (`after_s` from the previous step, or from a condition: engine RUNNING, alert WARNING+ with an explanation) | FIXED | Rule 6: identical at 1×, 10×, 60× and on every run. Tested at three different chunkings |
+| Crank model: half-sine pulse A = 2π·T̄_cyl, ω stepped in crank angle at 0.5°, governor at its converged state | FIXED + DERIVED | Review equations. The step is integrated in kinetic-energy form d(ω²)/dθ = 2·net/J, the exact form of the same ODE, so all four cylinders give the same ripple (Q-39) |
+| Telemetry window: 16 revolutions × 512 samples/rev = 8,192 points, sample 0 at cylinder 1 firing TDC, once per simulated second | PROVISIONAL | Power of two for the radix-2 FFT: bin k = order k/16 (Q-14) |
+| Mount factor 0.1; block mass 150 kg; F₂ → sensor acceleration = 0.1·F₂/150 | PROVISIONAL | Review's rigid-body table gives 1.71 g at 3,000 rpm; mounts take most of it (Q-12) |
+| 1× imbalance 5 % of the 2× line; rocking gain 0.008 (m/s²)/(N·m); accelerometer noise 0.03 m/s²; crank-speed jitter 1 rpm | PROVISIONAL | No values in either doc (Q-13). The rocking gain makes the misfire's 0.5× vibration line about a quarter of the 2× line at 3,000 rpm |
+| Healthy vibration RMS: closed form ½(a₂ + k·⅔T)² + ½a₁² + higher torque harmonics + σ² | DERIVED | Twin's expectation. The torque-ripple 2× line has amplitude ⅔T because the four pulses tile A\|sin φ\| with A = πT/2 |
+| Misfire severity from the 0.5× amplitude: m = 4A/(K·T + A), K from the closed form | DERIVED | Inverts A = K·T·m/(4 − m). Cylinder 3 at 50 % reads m = 0.5 |
+| Symptom ramps (ripple ×1.6→×4, missing 0.15→0.5, vibration ×1.3→×2.5, command ×1.05→×1.25) | PROVISIONAL | Engine-profile calibration values (Q-40), never ISO limits |
+| Overall health now averages six subsystems (vibration and combustion join at weights 0.20 and 0.15) | FIXED | Draft §22 weights. One failed subsystem now moves overall health less: the hero fault ends at about 84 (was 74 before vibration and combustion were monitored) |
+| 3D flash fades with the diagnosed missing fraction; block shake = 0.007 × a₂ × cos 2θ × vibration excess | PROVISIONAL | Visual only (Q-42) |
+
+### Phase 7 result (crank model at 3,000 rpm, resisting torque 110 N·m as in the review)
+
+| Case | Ripple p-p (rpm) | 0.5× amplitude (rpm) | 0.5× phase | Command (N·m) |
+| --- | --- | --- | --- | --- |
+| Healthy | 11.06 (review 11) | 0.00 | none | 110.0 (110) |
+| Cylinder 1 out | 61.21 (61) | 21.20 (21.0) | +45.0° | 146.7 (146) |
+| Cylinder 2 out | 60.15 (61) | 20.84 (21.0) | +135.0° | 146.7 (146) |
+| Cylinder 3 out | 60.85 (61) | 21.08 (21.0) | −45.0° | 146.7 (146) |
+| Cylinder 4 out | 60.49 (61) | 20.96 (21.0) | −135.0° | 146.7 (146) |
+| Cylinder 3 at 50 % | 32.13 (32) | 9.02 (9.0) | −45.1° | 125.7 (125) |
+
+- F₂: 179.0 N at 800 rpm, 2,517.1 N at 3,000, 10,068.4 N at 6,000 (review 179 / 2,517 / 10,068).
+- The per-cylinder spread in ripple (±0.6 rpm) comes from linear interpolation onto the 512-per-revolution grid; it is within 1.5 % of the review's 61.
+- Through the whole chain (Plant → sensors → Twin → analytics): every cylinder is named correctly at 800, 3,000 and 6,000 rpm; command ratio 1.33; healthy engine at three operating points never raises combustion evidence above 0.1.
+- Cost: one window (crank model + sensors + analysis) takes about 0.9 ms, so 60× time-warp uses about 5 % of a core for it.

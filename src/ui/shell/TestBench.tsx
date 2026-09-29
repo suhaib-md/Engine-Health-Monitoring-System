@@ -15,6 +15,8 @@ import { statusBg, statusText } from '../status';
 import { drawerSpring } from '../motion';
 import { PROFILE } from '../../engine/profile';
 import { isEngineRunning, sendSim, useSim } from '../sim/simClient';
+import { SCENARIOS } from '../../worker/scenarios';
+import { cx } from '../primitives';
 
 /**
  * Test-bench drawer (Amendment A): engine and fault controls slide in from the left
@@ -23,6 +25,7 @@ import { isEngineRunning, sendSim, useSim } from '../sim/simClient';
 export function TestBench() {
   const ui = useUi();
   const running = useSim((s) => isEngineRunning(s.snapshot));
+  const scenarioActive = useSim((s) => !!s.snapshot?.scenario);
   const close = () => ui.set({ benchOpen: false });
 
   useEffect(() => {
@@ -38,8 +41,15 @@ export function TestBench() {
   const sevStatus = scoreStatus(100 * (1 - fault.gain * ui.severity));
   const injectable = fault.phase <= AVAILABLE_PHASE;
   const inject = () => {
-    if (fault.id !== 'oilPump' && fault.id !== 'cooling') return;
-    sendSim({ type: 'injectFault', fault: fault.id, severity: ui.severity, onset: ui.faultMode });
+    if (fault.id === 'misfire')
+      sendSim({
+        type: 'injectFault',
+        fault: `misfire${ui.cylinder}`,
+        severity: ui.severity,
+        onset: ui.faultMode,
+      });
+    else if (fault.id === 'oilPump' || fault.id === 'cooling')
+      sendSim({ type: 'injectFault', fault: fault.id, severity: ui.severity, onset: ui.faultMode });
   };
 
   return (
@@ -74,6 +84,57 @@ export function TestBench() {
                 Close ✕
               </Button>
             </header>
+
+            <section className="panel-tab flex flex-col gap-6 border-b border-line-strong px-8 py-8">
+              <span className="label">Scenario</span>
+              <div role="radiogroup" aria-label="Scenario" className="flex flex-col gap-3">
+                {SCENARIOS.map((sc) => (
+                  <button
+                    key={sc.id}
+                    role="radio"
+                    aria-checked={ui.scenario === sc.id}
+                    onClick={() => ui.set({ scenario: sc.id })}
+                    className={cx(
+                      'flex cursor-pointer flex-col gap-1.5 border p-4 text-left transition-colors duration-fast',
+                      ui.scenario === sc.id
+                        ? 'border-accent bg-accent-dim'
+                        : 'border-line-strong hover:border-fg-3',
+                    )}
+                  >
+                    <span className="text-sm font-bold text-fg">{sc.name}</span>
+                    <span className="text-label leading-relaxed text-fg-3">{sc.blurb}</span>
+                  </button>
+                ))}
+                <div
+                  aria-disabled="true"
+                  className="flex flex-col gap-1.5 border border-dashed border-line p-4 opacity-60"
+                >
+                  <span className="text-sm font-bold text-fg-2">Hot-city stop-and-go</span>
+                  <span className="text-label text-fg-3">Arrives in Phase 10.</span>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="primary"
+                  className="flex-1"
+                  onClick={() => {
+                    sendSim({ type: 'runScenario', id: ui.scenario });
+                    close();
+                  }}
+                >
+                  Run scenario
+                </Button>
+                {scenarioActive && (
+                  <Button variant="secondary" onClick={() => sendSim({ type: 'stopScenario' })}>
+                    Stop
+                  </Button>
+                )}
+              </div>
+              <p className="num m-0 text-label leading-relaxed text-fg-3">
+                Scripts run on the simulated clock with a fixed seed, so they play identically every
+                time. Moving a control mid-run takes over from the script.
+              </p>
+            </section>
 
             <section className="panel-tab flex flex-col gap-7 border-b border-line-strong px-8 py-8">
               <span className="label">Engine</span>
@@ -142,7 +203,15 @@ export function TestBench() {
                 <span className="text-sm text-fg-2">Fault</span>
                 <select
                   value={ui.fault}
-                  onChange={(e) => ui.set({ fault: e.target.value as FaultId })}
+                  onChange={(e) => {
+                    const id = e.target.value as FaultId;
+                    // a misfire is abrupt: default it to instant onset (the slider still overrides)
+                    ui.set(
+                      id === 'misfire'
+                        ? { fault: id, faultMode: 'instant', severity: 1 }
+                        : { fault: id },
+                    );
+                  }}
                   className="h-10 cursor-pointer border border-line-strong bg-panel px-3 text-base text-fg"
                 >
                   {FAULTS.map((f) => (
@@ -153,6 +222,17 @@ export function TestBench() {
                   ))}
                 </select>
               </label>
+              {fault.id === 'misfire' && (
+                <Segmented<'1' | '2' | '3' | '4'>
+                  label="Cylinder"
+                  value={String(ui.cylinder) as '1' | '2' | '3' | '4'}
+                  onChange={(v) => ui.set({ cylinder: Number(v) as 1 | 2 | 3 | 4 })}
+                  options={(['1', '2', '3', '4'] as const).map((c) => ({
+                    value: c,
+                    label: `C${c}`,
+                  }))}
+                />
+              )}
               <Slider
                 label="Severity"
                 value={ui.severity}
@@ -189,9 +269,12 @@ export function TestBench() {
                 {ui.blind ? 'Blind mode on · fault hidden' : 'Blind mode off'}
               </Toggle>
               <p className="num m-0 text-label leading-relaxed text-fg-3">
-                Severity {ui.severity.toFixed(2)} leaves {fault.label.toLowerCase()} at health{' '}
-                {(1 - fault.gain * ui.severity).toFixed(2)}. Gradual onset ramps over 120 simulated
-                seconds. All values are demo calibration.
+                Severity {ui.severity.toFixed(2)} leaves{' '}
+                {fault.id === 'misfire'
+                  ? `cylinder ${ui.cylinder} combustion`
+                  : fault.label.toLowerCase()}{' '}
+                at health {(1 - fault.gain * ui.severity).toFixed(2)}. Gradual onset ramps over 120
+                simulated seconds. All values are demo calibration.
               </p>
             </section>
           </motion.aside>

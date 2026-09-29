@@ -1,6 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { ContactShadows, Environment, Grid, Lightformer, OrbitControls } from '@react-three/drei';
+import {
+  ContactShadows,
+  Environment,
+  Grid,
+  Lightformer,
+  OrbitControls,
+  PerformanceMonitor,
+} from '@react-three/drei';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -37,7 +44,7 @@ function CameraRig({ preset }: { preset: string }) {
  * Exposes fps / mesh / draw-call counts on window.__ignisense3d so the performance budget
  * (60 fps, < 100 meshes) can be checked in a real browser, plus the display crank angle readout.
  */
-function Probe() {
+function Probe({ quality }: { quality: number }) {
   const { gl, scene } = useThree();
   const frames = useRef(0);
   const acc = useRef(0);
@@ -55,6 +62,7 @@ function Probe() {
         calls: gl.info.render.calls,
         triangles: gl.info.render.triangles,
         piston1PinY: cylinderPose(0, 1).pinY,
+        quality,
       };
       frames.current = 0;
       acc.current = 0;
@@ -70,13 +78,21 @@ export default function EngineScene({
   preset: string;
   onPart: (p: PartId) => void;
 }) {
+  // Adaptive quality (Q-36): if the GPU cannot hold the frame rate, shed effects instead of stuttering.
+  // 0 = full, 1 = no contact shadows / MSAA at 1× pixel ratio, 2 = no bloom either. Only steps down.
+  const [quality, setQuality] = useState(0);
   return (
     <Canvas
       className="absolute! inset-0"
-      dpr={[1, 2]}
+      dpr={quality >= 1 ? 1 : [1, 2]}
       camera={{ fov: 32, near: 0.1, far: 100, position: CAMERA_PRESETS.front!.pos }}
       gl={{ antialias: false }}
     >
+      <PerformanceMonitor
+        bounds={() => [28, 200]}
+        flipflops={2}
+        onDecline={() => setQuality((q) => Math.min(2, q + 1))}
+      />
       <color attach="background" args={[color.bg]} />
       <fog attach="fog" args={[color.bg, 13, 30]} />
 
@@ -123,15 +139,17 @@ export default function EngineScene({
 
       <Engine explode={preset === 'explode'} onPart={onPart} />
 
-      <ContactShadows
-        position={[0, -1.34, 0]}
-        scale={14}
-        opacity={0.55}
-        blur={2.6}
-        far={4}
-        resolution={512}
-        color="#000000"
-      />
+      {quality < 1 && (
+        <ContactShadows
+          position={[0, -1.34, 0]}
+          scale={14}
+          opacity={0.55}
+          blur={2.6}
+          far={4}
+          resolution={512}
+          color="#000000"
+        />
+      )}
       <Grid
         position={[0, -1.35, 0]}
         args={[40, 40]}
@@ -154,11 +172,15 @@ export default function EngineScene({
         maxPolarAngle={Math.PI * 0.55}
       />
       <CameraRig preset={preset} />
-      <Probe />
+      <Probe quality={quality} />
 
       {/* bloom only catches genuinely bright things: firing flashes, the oil gallery, fault glows */}
-      <EffectComposer multisampling={4}>
-        <Bloom mipmapBlur luminanceThreshold={0.9} intensity={0.65} radius={0.55} />
+      <EffectComposer multisampling={quality >= 1 ? 0 : 4}>
+        {quality < 2 ? (
+          <Bloom mipmapBlur luminanceThreshold={0.9} intensity={0.65} radius={0.55} />
+        ) : (
+          <></>
+        )}
         <Vignette offset={0.3} darkness={0.55} />
       </EffectComposer>
     </Canvas>

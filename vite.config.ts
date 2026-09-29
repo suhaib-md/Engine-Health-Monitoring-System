@@ -9,5 +9,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // scenario tests simulate tens of minutes of engine time, including the crank-angle analysis
+    testTimeout: 30_000,
   },
 });

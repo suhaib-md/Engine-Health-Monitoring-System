@@ -148,6 +148,39 @@ export const PROFILE = {
     oilC: { sigma: 0.3, unit: '°C' },
     oilPressBar: { sigma: 0.03, unit: 'bar' },
     busV: { sigma: 0.03, unit: 'V' },
+    /** crank-speed sensor jitter per 0.5° sample (toothed wheel + timer), PROVISIONAL (Q-13) */
+    crankRpm: { sigma: 1, unit: 'rpm' },
+    /** accelerometer broadband noise, PROVISIONAL (Q-13) */
+    vibMs2: { sigma: 0.03, unit: 'm/s²' },
+  },
+
+  /**
+   * Crank-angle model and vibration synthesis (Phase 7). PROVISIONAL demo calibration, see
+   * docs/calibration.md and Q-12/Q-13/Q-25/Q-39.
+   */
+  crank: {
+    /** the analysed window: 16 revolutions = 8 four-stroke cycles, in the crank-angle domain */
+    windowRevs: 16,
+    /**
+     * Samples per revolution in the telemetry window (order-tracked). 512 x 16 = 8,192 points, a
+     * power of two for the radix-2 FFT, so bin k is order k/16. The crank model itself steps at
+     * `sim.crankStep_deg` (0.5 deg) and is resampled to this grid (Q-41).
+     */
+    samplesPerRev: 512,
+    /** a fresh window is produced every this many simulated seconds (draft §11: analyse each second) */
+    windowEvery_s: 1,
+  },
+  vibration: {
+    /** engine block mass used for the rigid-body upper bound in the review's table */
+    blockMass_kg: 150,
+    /** share of the rigid-body acceleration that reaches the sensor through the engine mounts (Q-12) */
+    mountFactor: 0.1,
+    /** healthy 1× (residual imbalance) as a fraction of the healthy 2× line (Q-13) */
+    imbalance1xFraction: 0.05,
+    /** phase of the 1× line against cylinder-1 firing TDC, deg */
+    imbalance1xPhase_deg: 30,
+    /** block rocking from the net crank torque: a = −gain · (T_gas − T_load), m/s² per N·m (Q-13) */
+    rockGain_ms2perNm: 0.008,
   },
 
   faults: {

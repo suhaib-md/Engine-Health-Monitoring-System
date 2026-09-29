@@ -1,6 +1,7 @@
 import { ANALYTICS, WEIGHTS } from './config';
 import { riskHigh, riskLow } from './risk';
 import type { Features } from './residuals';
+import type { SpectralFeatures } from './spectral';
 import type { FaultEvidence, Symptom } from './types';
 
 /**
@@ -133,7 +134,66 @@ function charging(f: Features): FaultEvidence {
   };
 }
 
+/**
+ * Misfire / combustion irregularity (draft sections 13, 30; weights 20.2). The 0.5x crank-speed
+ * component's amplitude measures how much torque one cylinder is missing and its phase names the
+ * cylinder. "Do not diagnose misfire from vibration alone" (draft 13.3): vibration is one of four symptoms.
+ */
+function combustion(s: SpectralFeatures | null): FaultEvidence {
+  const w = WEIGHTS.combustion;
+  const c = ANALYTICS.misfire;
+  const named = !!s && s.misfire.missing >= c.nameAbove;
+  const cyl = s?.misfire.cylinder ?? 1;
+  const symptoms: Symptom[] = s
+    ? [
+        {
+          id: 'rpmIrregularity',
+          weight: w.rpmIrregularity,
+          risk: riskHigh(s.ratios.ripple, c.rippleRatio.warn, c.rippleRatio.crit),
+          text: `Crank-speed ripple ${f1(s.ripplePPRpm)} rpm peak to peak, ${f1(s.ratios.ripple)}× the healthy expectation`,
+        },
+        {
+          id: 'firingSpectrum',
+          weight: w.firingSpectrum,
+          risk: riskHigh(s.misfire.missing, c.missing.warn, c.missing.crit),
+          text: named
+            ? `0.5× crank-speed component ${f1(s.speed.halfAmp_rpm)} rpm at ${sgn(s.speed.halfPhase_deg, (x) => x.toFixed(0))}°: cylinder ${cyl} sector, about ${(s.misfire.missing * 100).toFixed(0)}% of its torque missing`
+            : `0.5× crank-speed component ${f1(s.speed.halfAmp_rpm)} rpm (no cycle-synchronous disturbance)`,
+        },
+        {
+          id: 'vibrationLevel',
+          weight: w.vibrationLevel,
+          risk: riskHigh(s.ratios.rms, c.vibRatio.warn, c.vibRatio.crit),
+          text: `Vibration ${f2(s.vib.rms)} m/s² RMS, ${f1(s.ratios.rms)}× the healthy expectation`,
+        },
+        {
+          id: 'torqueCommand',
+          weight: w.torqueCommand,
+          risk: riskHigh(s.ratios.torqueCmd, c.cmdRatio.warn, c.cmdRatio.crit),
+          text: `Governor asks for ${sgn((s.ratios.torqueCmd - 1) * 100, (x) => x.toFixed(0))}% torque against the healthy twin`,
+        },
+      ]
+    : [
+        {
+          id: 'awaiting',
+          weight: 1,
+          risk: 0,
+          text: 'Awaiting a crank-angle window (the engine must be running)',
+        },
+      ];
+  return {
+    id: 'combustion',
+    name: named ? `Cylinder ${cyl} misfire` : 'Combustion irregularity',
+    subsystem: 'combustion',
+    score: score(symptoms),
+    symptoms,
+    action: named
+      ? `Check the ignition coil, spark plug and injector on cylinder ${cyl}, then its compression.`
+      : 'Check ignition, fuelling and compression for a weak cylinder.',
+  };
+}
+
 /** All fault hypotheses, highest evidence first. */
-export function diagnose(f: Features): FaultEvidence[] {
-  return [cooling(f), lubrication(f), charging(f)].sort((a, b) => b.score - a.score);
+export function diagnose(f: Features, s: SpectralFeatures | null = null): FaultEvidence[] {
+  return [cooling(f), lubrication(f), charging(f), combustion(s)].sort((a, b) => b.score - a.score);
 }

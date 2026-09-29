@@ -11,7 +11,7 @@ export function ValidationPage() {
   // Physics is cheap; compute once per visit.
   const rows = useMemo(() => CHECKS.map((c) => ({ ...c, value: c.model ? c.model() : null })), []);
   const done = rows.filter((r) => r.value != null);
-  const passed = done.filter((r) => passes(r.value!, r.expected)).length;
+  const passed = done.filter((r) => passes(r.value!, r.expected, r.tolAbs)).length;
 
   return (
     <div className="flex flex-col gap-14">
@@ -46,7 +46,7 @@ export function ValidationPage() {
               viewport={{ once: true }}
             >
               {rows.map((r) => {
-                const ok = r.value != null && passes(r.value, r.expected);
+                const ok = r.value != null && passes(r.value, r.expected, r.tolAbs);
                 return (
                   <motion.tr
                     key={r.check}

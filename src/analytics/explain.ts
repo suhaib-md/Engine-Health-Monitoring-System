@@ -19,6 +19,7 @@ const OTHER_SIGNALS: Record<FaultEvidence['id'], string> = {
   cooling: 'Oil-pressure and electrical signals do not explain it',
   lubrication: 'Cooling and electrical signals do not explain it',
   charging: 'Thermal and lubrication signals do not explain it',
+  combustion: 'Oil-pressure and cooling behaviour remain normal',
 };
 
 /**

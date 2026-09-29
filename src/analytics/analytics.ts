@@ -3,6 +3,7 @@ import type { Telemetry } from '../telemetry';
 import type { TwinExpected } from '../twin';
 import { ANALYTICS } from './config';
 import { ResidualTracker, type Features } from './residuals';
+import { SpectralAnalyzer, type SpectralFeatures } from './spectral';
 import { diagnose } from './diagnosis';
 import { criticalOverride, overallHealth, subsystemHealth, subsystemRisks } from './health';
 import { HysteresisMachine, levelRank } from './alerts';
@@ -27,6 +28,8 @@ export interface AnalyticsState {
   /** true while alerts are allowed to escalate (running and settled) */
   armed: boolean;
   features: Features;
+  /** crank-angle features of the latest window (null while the engine is not running) */
+  spectral: SpectralFeatures | null;
   evidence: FaultEvidence[];
   overallHealth: number;
   subsystems: SubsystemHealth[];
@@ -44,7 +47,10 @@ const clock = (t: number) => {
   return h > 0 ? `T+${h}:${mm}:${ss}` : `T+${mm}:${ss}`;
 };
 
-const UNITS: Record<FaultKind, { ch: keyof Features['channels']; unit: string; d: number }> = {
+const UNITS: Record<
+  Exclude<FaultKind, 'combustion'>,
+  { ch: keyof Features['channels']; unit: string; d: number }
+> = {
   cooling: { ch: 'coolantC', unit: '°C', d: 1 },
   lubrication: { ch: 'oilPressBar', unit: 'bar', d: 2 },
   charging: { ch: 'busV', unit: 'V', d: 2 },
@@ -56,7 +62,9 @@ export class Analytics {
     cooling: new HysteresisMachine(),
     lubrication: new HysteresisMachine(),
     charging: new HysteresisMachine(),
+    combustion: new HysteresisMachine(),
   };
+  private spectral = new SpectralAnalyzer();
   private alerts: AlertRow[] = [];
   private alertSeq = 0;
   private runningFor_s = 0;
@@ -93,9 +101,10 @@ export class Analytics {
       });
     }
 
-    const evidence = diagnose(f);
+    const spectral = this.spectral.update(tel, exp);
+    const evidence = diagnose(f, spectral);
     const override = criticalOverride(f);
-    const risks = subsystemRisks(evidence, f);
+    const risks = subsystemRisks(evidence, f, spectral);
 
     for (const e of evidence) {
       const m = this.machines[e.id];
@@ -105,8 +114,19 @@ export class Analytics {
         ((e.id === 'lubrication' && override.reason.startsWith('Oil')) ||
           (e.id === 'cooling' && override.reason.startsWith('Coolant')));
       const raised = m.update(e.score, dt, armed, ov);
-      if (raised) {
-        const u = UNITS[e.id];
+      if (raised && e.id === 'combustion') {
+        this.push({
+          cls: raised as Exclude<AlertLevel, 'NORMAL'>,
+          subsystem: 'Combustion',
+          title: e.name.toLowerCase(),
+          t: tel.t,
+          measured: spectral ? `0.5× ${spectral.speed.halfAmp_rpm.toFixed(1)} rpm` : undefined,
+          expected: '0.0 rpm',
+          residual: spectral ? `ripple ×${spectral.ratios.ripple.toFixed(1)}` : undefined,
+          source: 'rule',
+        });
+      } else if (raised) {
+        const u = UNITS[e.id as keyof typeof UNITS];
         const c = f.channels[u.ch];
         const persist = Math.max(c.persistHigh_s, c.persistLow_s);
         this.push({
@@ -127,6 +147,7 @@ export class Analytics {
       cooling: this.machines.cooling.level,
       lubrication: this.machines.lubrication.level,
       charging: this.machines.charging.level,
+      combustion: this.machines.combustion.level,
     };
     const overallLevel = (Object.values(levels) as AlertLevel[]).reduce((a, b) =>
       levelRank(b) > levelRank(a) ? b : a,
@@ -150,6 +171,7 @@ export class Analytics {
       running,
       armed,
       features: f,
+      spectral,
       evidence,
       overallHealth: overallHealth(risks),
       subsystems: subsystemHealth(risks),

@@ -3,7 +3,13 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
 import { PROFILE } from '../engine/profile';
-import { combustionGlow, cyclePhase_deg, rpmToRadps, valveLift_m } from '../physics';
+import {
+  combustionGlow,
+  cyclePhase_deg,
+  rpmToRadps,
+  secondaryAccel_ms2,
+  valveLift_m,
+} from '../physics';
 import { useSim } from '../ui/sim/simClient';
 import { color, scoreStatus, type Status } from '../ui/tokens';
 import { calloutEls } from './callouts';
@@ -155,6 +161,9 @@ const M = {
   ),
 };
 
+/** Scene units of block shake per m/s² of second-order acceleration at the sensor (subtle at 3,000 rpm). */
+const SHAKE_GAIN = 0.007;
+
 /** Faulty subsystem parts pulse their status colour (design system §11); healthy parts don't glow. */
 function tint(m: THREE.MeshStandardMaterial, s: Status, t: number) {
   if (s === 'ok') {
@@ -183,6 +192,7 @@ export function Engine({ explode, onPart }: { explode: boolean; onPart: (p: Part
   const camIn = useRef<THREE.Mesh>(null);
   const camEx = useRef<THREE.Mesh>(null);
   const head = useRef<THREE.Group>(null);
+  const shake = useRef<THREE.Group>(null);
   const sump = useRef<THREE.Group>(null);
   const radiator = useRef<THREE.Group>(null);
   const fan = useRef<THREE.Group>(null);
@@ -212,6 +222,20 @@ export function Engine({ explode, onPart }: { explode: boolean; onPart: (p: Part
     if (altPulley.current) altPulley.current.rotation.x = th * 2;
     const firing = rpm > PROFILE.electrical.crankingBelow_rpm;
 
+    // What the monitor has concluded about combustion: the cylinder named by the 0.5× phase and
+    // how much of its torque is missing. The view shows the diagnosis, not the hidden fault.
+    const an = snap?.analytics;
+    const mis = an && an.levels.combustion !== 'NORMAL' && an.spectral ? an.spectral.misfire : null;
+
+    // F₂ block shake: 4 m r ω² λ cos 2θ, at twice the (slowed) crank frequency; grows with
+    // measured vibration above the Twin's expectation
+    if (shake.current) {
+      const excess = Math.min(2.5, Math.max(1, an?.spectral?.ratios.rms ?? 1));
+      shake.current.position.y = firing
+        ? SHAKE_GAIN * secondaryAccel_ms2(rpm) * Math.cos(2 * th) * excess
+        : 0;
+    }
+
     for (const c of CYLS) {
       const i = c - 1;
       const pose = cylinderPose(th, c);
@@ -227,8 +251,9 @@ export function Engine({ explode, onPart }: { explode: boolean; onPart: (p: Part
       if (vi) vi.position.y = VALVE_SEAT_Y - valveLift_m(phase, 'intake') * LIFT_SCALE;
       const ve = valvesEx.current[i];
       if (ve) ve.position.y = VALVE_SEAT_Y - valveLift_m(phase, 'exhaust') * LIFT_SCALE;
-      // combustion flash (Phase 7 suppresses it for a misfiring cylinder)
-      const glow = firing ? combustionGlow(phase) : 0;
+      // combustion flash: fades with the torque a diagnosed misfiring cylinder is missing
+      const dead = mis && mis.cylinder === c ? Math.min(1, mis.missing) : 0;
+      const glow = firing ? combustionGlow(phase) * (1 - dead) : 0;
       M.flash[i]!.opacity = 0.85 * glow;
       const f = flashes.current[i];
       if (f) f.scale.setScalar(0.6 + 0.6 * glow);
@@ -298,7 +323,7 @@ export function Engine({ explode, onPart }: { explode: boolean; onPart: (p: Part
   };
 
   return (
-    <group>
+    <group ref={shake}>
       {/* block + crankcase: see-through, drawn with a heat-mapped outline */}
       <mesh geometry={G.block} material={M.block} position={[0, 1.55, 0]} />
       <lineSegments geometry={E.block} material={M.edge} position={[0, 1.55, 0]} />

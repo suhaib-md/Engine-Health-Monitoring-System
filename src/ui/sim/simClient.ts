@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
-import type { Command, Snapshot, WorkerMessage } from '../../worker/protocol';
+import type { Command, SimWindows, Snapshot, WorkerMessage } from '../../worker/protocol';
 import { useUi } from '../store';
 
 /**
@@ -14,7 +14,28 @@ interface SimStore {
 
 export const useSim = create<SimStore>(() => ({ snapshot: null }));
 
+/**
+ * The latest crank-angle window. The worker sends a window only when it is new (once per simulated
+ * second), so it lives in its own store and the vibration charts redraw only then.
+ */
+export const useWindows = create<{ windows: SimWindows | null }>(() => ({ windows: null }));
+
 let worker: Worker | null = null;
+let lastSettingsRev = 0;
+
+/** A scripted scenario changed the controls in the worker: make the sliders show the truth. */
+function mirrorSettings(s: Snapshot) {
+  if (s.settingsRev === lastSettingsRev) return;
+  lastSettingsRev = s.settingsRev;
+  const c = s.settings;
+  useUi.setState({
+    targetRpm: c.targetRpm,
+    load_Nm: c.torque_Nm,
+    ambient_C: c.ambient_C,
+    fan: c.fanMode,
+    warp: c.warp,
+  });
+}
 
 export function sendSim(cmd: Command) {
   worker?.postMessage(cmd);
@@ -43,7 +64,12 @@ export function useSimWorker() {
         type: 'module',
       });
       worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
-        if (e.data.type === 'snapshot') useSim.setState({ snapshot: e.data.snapshot });
+        if (e.data.type === 'snapshot') {
+          const { windows, ...rest } = e.data.snapshot;
+          mirrorSettings(e.data.snapshot);
+          if (windows) useWindows.setState({ windows });
+          useSim.setState({ snapshot: { ...rest, windows: null } });
+        }
       };
     }
     syncSettings();

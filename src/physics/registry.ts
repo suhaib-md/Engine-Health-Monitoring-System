@@ -11,7 +11,15 @@ export interface SymbolInfo {
   label: string;
 }
 
-export type Subsystem = 'engine' | 'friction' | 'energy' | 'cooling' | 'lubrication' | 'electrical';
+export type Subsystem =
+  | 'engine'
+  | 'friction'
+  | 'energy'
+  | 'cooling'
+  | 'lubrication'
+  | 'electrical'
+  | 'vibration'
+  | 'combustion';
 
 export interface Equation<I extends Record<string, number>> {
   id: string;

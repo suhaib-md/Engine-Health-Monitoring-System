@@ -3,6 +3,8 @@ export * from './types';
 export * from './config';
 export * from './risk';
 export * from './residuals';
+export * from './fft';
+export * from './spectral';
 export * from './diagnosis';
 export * from './health';
 export * from './alerts';

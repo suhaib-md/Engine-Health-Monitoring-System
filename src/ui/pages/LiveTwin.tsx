@@ -9,10 +9,11 @@ import { Gauge } from '../Gauge';
 import { HealthRing, SubsystemBars } from '../health';
 import { AlertItem, ExplanationCard } from '../diagnostics';
 import { PartPanel, ViewportChrome } from '../overlay3d';
+import { RunHeroButton, ScenarioBar } from '../ScenarioBar';
 import { Reveal, Stagger, StaggerItem, drawerSpring, EASE_OUT } from '../motion';
 import { residualStatus } from '../format';
 import { scoreStatus } from '../tokens';
-import type { ResidualChannel } from '../../analytics';
+import { ANALYTICS, riskHigh, riskStatus, type ResidualChannel } from '../../analytics';
 import { PROFILE } from '../../engine/profile';
 import { registerCallout } from '../../three/callouts';
 import type { PartId as EnginePartId } from '../../three/Engine';
@@ -36,11 +37,15 @@ export function LiveTwinPage() {
           title="Live twin"
           description="What the engine measures, beside what the healthy Twin expects. The gap between them is the evidence."
           aside={
-            <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
-              Open test bench
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <RunHeroButton />
+              <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
+                Open test bench
+              </Button>
+            </div>
           }
         />
+        <ScenarioBar />
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
           <Reveal>
             <Viewport />
@@ -190,12 +195,13 @@ function PartMarker({
 /** Real engine speed vs the slowed display speed, plus the renderer's measured fps and mesh count. */
 function SpeedReadout() {
   const rpm = useSim((s) => Math.round(s.snapshot?.telemetry.rpm ?? 0));
-  const [gfx, setGfx] = useState<{ fps: number; meshes: number } | null>(null);
+  const [gfx, setGfx] = useState<{ fps: number; meshes: number; quality: number } | null>(null);
   useEffect(() => {
     const id = setInterval(() => {
-      const g = (window as unknown as { __ignisense3d?: { fps: number; meshes: number } })
-        .__ignisense3d;
-      if (g) setGfx({ fps: g.fps, meshes: g.meshes });
+      const g = (
+        window as unknown as { __ignisense3d?: { fps: number; meshes: number; quality: number } }
+      ).__ignisense3d;
+      if (g) setGfx({ fps: g.fps, meshes: g.meshes, quality: g.quality });
     }, 1000);
     return () => clearInterval(id);
   }, []);
@@ -207,6 +213,7 @@ function SpeedReadout() {
         <>
           {' '}
           · {gfx.fps} fps · {gfx.meshes} meshes
+          {gfx.quality > 0 && ' · reduced effects'}
         </>
       )}
     </div>
@@ -307,9 +314,7 @@ function SubsystemsPanel() {
     <Panel className="flex flex-col gap-5">
       <span className="label">Subsystems</span>
       <SubsystemBars items={subs ?? []} />
-      <span className="num text-label text-fg-3">
-        — = not monitored until the crank-angle model (Phase 7)
-      </span>
+      <span className="num text-label text-fg-3">— = not monitored while the engine is off</span>
     </Panel>
   );
 }
@@ -322,11 +327,22 @@ function Signals() {
   const f = useSim((s) => s.snapshot?.analytics?.features);
   const targetRpm = useUi((s) => s.targetRpm);
   const running = useSim((s) => isEngineRunning(s.snapshot));
+  const spectral = useSim((s) => s.snapshot?.analytics?.spectral);
   if (!tel || !exp) return <p className="num text-fg-3">Waiting for the simulation worker…</p>;
 
   const q = (v: number | null) => (v == null ? ('unavailable' as const) : ('valid' as const));
   const ch = (c: ResidualChannel) => f?.channels[c];
   const rpmStatus = tel.rpm > 6000 ? 'crit' : 'ok';
+  // vibration is judged against the healthy Twin at this speed and load (ratio, not an absolute limit)
+  const vibStatus = spectral
+    ? riskStatus(
+        riskHigh(
+          spectral.ratios.rms,
+          ANALYTICS.misfire.vibRatio.warn,
+          ANALYTICS.misfire.vibRatio.crit,
+        ),
+      )
+    : 'ok';
 
   return (
     <Stagger className="grid grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -406,12 +422,18 @@ function Signals() {
         />
       </StaggerItem>
       <StaggerItem>
-        <div className="flex h-full min-h-40 flex-col justify-between gap-4 border border-dashed border-line bg-panel/60 p-5">
-          <span className="label">Vibration RMS</span>
-          <span className="text-sm leading-relaxed text-fg-3">
-            Arrives with the crank-angle model and order spectrum (Phase 7).
-          </span>
-        </div>
+        <Gauge
+          label="Vibration RMS"
+          unit="m/s²"
+          value={spectral?.vib.rms ?? 0}
+          expected={exp.vibRmsMs2}
+          min={0}
+          max={10}
+          decimals={2}
+          status={vibStatus}
+          quality={spectral ? 'valid' : 'unavailable'}
+          z={spectral ? (spectral.ratios.rms - 1) / 0.15 : undefined}
+        />
       </StaggerItem>
     </Stagger>
   );
