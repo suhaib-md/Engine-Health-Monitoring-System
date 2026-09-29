@@ -43,6 +43,8 @@ export interface SpectralFeatures {
   };
   /** measured / the healthy Twin's expectation (torqueCmd is refreshed on every update) */
   ratios: { rms: number; ripple: number; torqueCmd: number };
+  /** the healthy Twin's resisting torque this window was normalised with, N·m */
+  resistNm: number;
   misfire: {
     /** the cylinder whose sector holds the 0.5× phase */
     cylinder: 1 | 2 | 3 | 4;
@@ -138,6 +140,7 @@ export function analyseWindows(
       ripple: exp.ripplePPRpm > 0 ? ripple / exp.ripplePPRpm : 1,
       torqueCmd: 1,
     },
+    resistNm: exp.resistNm,
     misfire: {
       cylinder: cylinderFromPhase(halfPhase),
       missing: missingFractionFromHalfOrder(ss.mean, exp.resistNm, halfAmp),

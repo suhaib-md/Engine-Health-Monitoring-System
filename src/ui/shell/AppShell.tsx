@@ -1,4 +1,4 @@
-import { useEffect, type JSX } from 'react';
+import { Suspense, lazy, useEffect, type JSX } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { BRAND } from '../../brand';
 import { PAGES, isPageId, useUi, type PageId } from '../store';
@@ -13,10 +13,20 @@ import { TestBench } from './TestBench';
 import { LiveTwinPage } from '../pages/LiveTwin';
 import { TrendsPage } from '../pages/Trends';
 import { VibrationPage } from '../pages/Vibration';
-import { MathPage } from '../pages/Math';
 import { ValidationPage } from '../pages/Validation';
 import { ReportPage } from '../pages/Report';
 import { DebugPage } from '../pages/Debug';
+import { MathDrawer } from '../math/MathDrawer';
+
+// the Math page carries KaTeX: load it on first visit
+const MathPageLazy = lazy(() => import('../pages/Math'));
+function MathPage() {
+  return (
+    <Suspense fallback={<p className="num text-fg-3">Loading the equations…</p>}>
+      <MathPageLazy />
+    </Suspense>
+  );
+}
 
 const VIEWS: Record<PageId, () => JSX.Element> = {
   live: LiveTwinPage,
@@ -152,6 +162,7 @@ export function AppShell() {
         </footer>
 
         <TestBench />
+        <MathDrawer />
       </div>
     </MotionConfig>
   );

@@ -54,6 +54,8 @@ export const sliderCrankEquations = [
     inputs: { theta: { symbol: String.raw`\theta`, unit: 'rad', label: 'crank angle' } },
     output: { symbol: 'x', unit: 'm', label: 'piston-pin distance from crank axis' },
     compute: ({ theta }) => pistonPosition_m(theta),
+    substitute: (s) =>
+      String.raw`0.043\cos(${s.v('theta')}) + \sqrt{0.145^2 - 0.043^2\left(\sin(${s.v('theta')})\right)^2}`,
   }),
   defineEquation<{ theta: number; omega: number }>({
     id: 'crank.pistonAccel',
@@ -66,5 +68,7 @@ export const sliderCrankEquations = [
     },
     output: { symbol: 'a', unit: 'm/s²', label: 'piston acceleration' },
     compute: ({ theta, omega }) => pistonAccel_mps2(theta, omega),
+    substitute: (s) =>
+      String.raw`0.043 \cdot ${s.v('omega')}^2\left(\cos(${s.v('theta')}) + 0.297\cos\left(2 \cdot ${s.v('theta')}\right)\right)`,
   }),
 ];

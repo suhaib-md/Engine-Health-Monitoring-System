@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Button, Segmented, Slider, Toggle } from '../primitives';
+import { Button, Segmented, Slider } from '../primitives';
 import {
   AVAILABLE_PHASE,
   FAULTS,
@@ -26,6 +26,7 @@ export function TestBench() {
   const ui = useUi();
   const running = useSim((s) => isEngineRunning(s.snapshot));
   const scenarioActive = useSim((s) => !!s.snapshot?.scenario);
+  const blindActive = useSim((s) => !!s.snapshot?.blind);
   const close = () => ui.set({ benchOpen: false });
 
   useEffect(() => {
@@ -197,6 +198,25 @@ export function TestBench() {
               />
             </section>
 
+            <section className="panel-tab flex flex-col gap-6 border-b border-line-strong px-8 py-8">
+              <span className="label">Blind challenge</span>
+              <p className="m-0 text-sm leading-relaxed text-fg-2">
+                Deal six sealed fault cards. A judge picks one on the Live Twin page; the monitor
+                has to name it from the sensors alone before the card is turned over.
+              </p>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  sendSim({ type: 'blindDeal' });
+                  ui.set({ page: 'live' });
+                  close();
+                }}
+              >
+                {blindActive ? 'Deal a new hand' : 'Deal blind challenge'}
+              </Button>
+            </section>
+
             <section className="panel-tab flex flex-col gap-7 px-8 py-8">
               <span className="label">Fault injection</span>
               <label className="flex flex-col gap-2.5">
@@ -216,7 +236,7 @@ export function TestBench() {
                 >
                   {FAULTS.map((f) => (
                     <option key={f.id} value={f.id} disabled={f.phase > AVAILABLE_PHASE}>
-                      {ui.blind ? '•••••••' : f.label}
+                      {f.label}
                       {f.phase > AVAILABLE_PHASE ? ` (Phase ${f.phase})` : ''}
                     </option>
                   ))}
@@ -254,7 +274,13 @@ export function TestBench() {
                 ]}
               />
               <div className="flex gap-3">
-                <Button variant="danger" className="flex-1" disabled={!injectable} onClick={inject}>
+                <Button
+                  variant="danger"
+                  className="flex-1"
+                  disabled={!injectable || blindActive}
+                  title={blindActive ? 'End the blind challenge first' : undefined}
+                  onClick={inject}
+                >
                   Inject fault
                 </Button>
                 <Button
@@ -265,9 +291,7 @@ export function TestBench() {
                   Repair
                 </Button>
               </div>
-              <Toggle checked={ui.blind} onChange={(v) => ui.set({ blind: v })}>
-                {ui.blind ? 'Blind mode on · fault hidden' : 'Blind mode off'}
-              </Toggle>
+
               <p className="num m-0 text-label leading-relaxed text-fg-3">
                 Severity {ui.severity.toFixed(2)} leaves{' '}
                 {fault.id === 'misfire'

@@ -24,6 +24,8 @@ export const torqueEquations = [
     inputs: { N: { symbol: 'N', unit: 'rpm', label: 'engine speed' } },
     output: { symbol: 'T_{max}', unit: 'N·m', label: 'maximum torque' },
     compute: ({ N }) => maxTorque_Nm(N),
+    substitute: (s) =>
+      String.raw`190\left[1 - 0.53\left(\frac{${s.v('N')} - 4000}{4000}\right)^2\right]`,
   }),
   defineEquation<{ T: number; N: number }>({
     id: 'engine.load',
@@ -36,5 +38,6 @@ export const torqueEquations = [
     },
     output: { symbol: 'L', unit: '', label: 'load fraction' },
     compute: ({ T, N }) => loadFraction(T, N),
+    substitute: (s) => String.raw`\frac{${s.v('T')}}{${s.n(maxTorque_Nm(s.i.N), 1)}}`,
   }),
 ];

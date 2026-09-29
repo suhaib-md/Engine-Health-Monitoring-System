@@ -56,6 +56,8 @@ export const coolingEquations = [
     inputs: { T_c: { symbol: 'T_c', unit: '°C', label: 'coolant temperature' } },
     output: { symbol: 'F_{therm}', unit: '', label: 'thermostat opening' },
     compute: ({ T_c }) => thermostatOpening(T_c),
+    substitute: (s) =>
+      String.raw`\operatorname{clip}\!\left(\frac{${s.v('T_c')} - 82}{13},\,0,\,1\right)`,
   }),
   defineEquation<{ H_cool: number; F_therm: number; F_fan: number }>({
     id: 'cooling.ua',
@@ -69,6 +71,8 @@ export const coolingEquations = [
     },
     output: { symbol: 'UA_{eff}', unit: 'W/K', label: 'radiator conductance' },
     compute: ({ H_cool, F_therm, F_fan }) => radiatorUA_WperK(H_cool, F_therm, F_fan >= 0.5),
+    substitute: (s) =>
+      String.raw`${s.v('H_cool')} \cdot ${s.v('F_therm')} \cdot \left(600 + 1000 \cdot ${s.v('F_fan')}\right)`,
   }),
   defineEquation<{ Q_cool: number; UA: number; T_c: number; T_amb: number }>({
     id: 'cooling.rate',
@@ -84,5 +88,7 @@ export const coolingEquations = [
     output: { symbol: String.raw`dT_c/dt`, unit: 'K/s', label: 'coolant heating rate' },
     compute: ({ Q_cool, UA, T_c, T_amb }) =>
       coolantRate_Kps(Q_cool, radiatorHeat_W(UA, T_c, T_amb)),
+    substitute: (s) =>
+      String.raw`\frac{${s.v('Q_cool')} - ${s.v('UA')}\,\left(${s.v('T_c')} - ${s.v('T_amb')}\right)}{100{,}000}`,
   }),
 ];

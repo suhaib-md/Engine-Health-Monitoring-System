@@ -27,6 +27,7 @@ export const basicsEquations = [
     inputs: { N: { symbol: 'N', unit: 'rpm', label: 'engine speed' } },
     output: { symbol: String.raw`\omega`, unit: 'rad/s', label: 'angular speed' },
     compute: ({ N }) => rpmToRadps(N),
+    substitute: (s) => String.raw`\frac{2\pi \cdot ${s.v('N')}}{60}`,
   }),
   defineEquation<{ T: number; N: number }>({
     id: 'engine.brakePower',
@@ -39,5 +40,6 @@ export const basicsEquations = [
     },
     output: { symbol: 'P_b', unit: 'W', label: 'brake power' },
     compute: ({ T, N }) => shaftPower_W(T, N),
+    substitute: (s) => String.raw`${s.v('T')} \cdot \frac{2\pi \cdot ${s.v('N')}}{60}`,
   }),
 ];

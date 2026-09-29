@@ -27,7 +27,33 @@ export type Command =
   | { type: 'injectFault'; fault: PlantFaultId; severity: number; onset: FaultOnset }
   | { type: 'clearFaults' }
   | { type: 'runScenario'; id: ScenarioId }
-  | { type: 'stopScenario' };
+  | { type: 'stopScenario' }
+  /** blind mode: deal a shuffled, face-down deck of faults */
+  | { type: 'blindDeal' }
+  /** the judge picks a card by position; the worker injects what is on it */
+  | { type: 'blindPick'; card: number }
+  | { type: 'blindReveal' }
+  | { type: 'blindEnd' };
+
+/**
+ * Blind challenge as the UI sees it. Before the reveal it holds only positions and times, never
+ * which fault is on a card.
+ */
+export interface BlindStatus {
+  cards: number;
+  picked: number | null;
+  pickedAt: number | null;
+  /** when the monitor first held a WARNING-or-worse diagnosis after the pick */
+  firstWarningAt: number | null;
+  /** filled in by the reveal */
+  answer: {
+    label: string;
+    expected: string;
+    /** the monitor's diagnosis at the moment of the reveal */
+    verdict: string | null;
+    correct: boolean;
+  } | null;
+}
 
 /** Where a scripted scenario is, for the progress strip. */
 export interface ScenarioStatus {
@@ -77,6 +103,8 @@ export interface Snapshot {
   windows: SimWindows | null;
   /** the running scripted scenario, if any */
   scenario: ScenarioStatus | null;
+  /** the blind challenge, if one is dealt */
+  blind: BlindStatus | null;
   /** current control settings; the UI mirrors them when `settingsRev` changes (a scenario set them) */
   settings: SimSettings;
   settingsRev: number;

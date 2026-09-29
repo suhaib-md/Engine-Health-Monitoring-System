@@ -10,6 +10,7 @@ import { HealthRing, SubsystemBars } from '../health';
 import { AlertItem, ExplanationCard } from '../diagnostics';
 import { PartPanel, ViewportChrome } from '../overlay3d';
 import { RunHeroButton, ScenarioBar } from '../ScenarioBar';
+import { BlindBar } from '../BlindBar';
 import { Reveal, Stagger, StaggerItem, drawerSpring, EASE_OUT } from '../motion';
 import { residualStatus } from '../format';
 import { scoreStatus } from '../tokens';
@@ -46,6 +47,7 @@ export function LiveTwinPage() {
           }
         />
         <ScenarioBar />
+        <BlindBar />
         <div className="grid grid-cols-[minmax(0,1fr)] gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
           <Reveal>
             <Viewport />
@@ -96,6 +98,9 @@ export function LiveTwinPage() {
 
 // three.js is ~600 kB: load the 3D scene on demand so the rest of the app paints first
 const EngineScene = lazy(() => import('../../three/EngineScene'));
+/** `?no3d` skips the WebGL scene: for headless browser checks and a last-resort fallback (Q-36). */
+const NO_3D =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('no3d');
 
 type PartId = EnginePartId;
 
@@ -118,7 +123,13 @@ function Viewport() {
           </div>
         }
       >
-        <EngineScene preset={preset} onPart={setPart} />
+        {NO_3D ? (
+          <div className="viewport-hatch num absolute inset-0 flex items-center justify-center text-xs text-fg-3">
+            3D view off (?no3d)
+          </div>
+        ) : (
+          <EngineScene preset={preset} onPart={setPart} />
+        )}
       </Suspense>
       <PartMarker
         part="oilPump"
@@ -258,7 +269,10 @@ function PartOverlay({ part, onClose }: { part: PartId; onClose: () => void }) {
         }
         actions={
           <>
-            <Button variant="ghost" onClick={() => set({ page: 'math' })}>
+            <Button
+              variant="ghost"
+              onClick={() => set({ math: part === 'oilPump' ? 'oilPress' : 'coolant' })}
+            >
               Show the math
             </Button>
             <Button variant="secondary" onClick={onClose}>
@@ -328,6 +342,7 @@ function Signals() {
   const targetRpm = useUi((s) => s.targetRpm);
   const running = useSim((s) => isEngineRunning(s.snapshot));
   const spectral = useSim((s) => s.snapshot?.analytics?.spectral);
+  const set = useUi((s) => s.set);
   if (!tel || !exp) return <p className="num text-fg-3">Waiting for the simulation worker…</p>;
 
   const q = (v: number | null) => (v == null ? ('unavailable' as const) : ('valid' as const));
@@ -349,6 +364,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Engine speed"
+          onMath={() => set({ math: 'rpm' })}
           unit="rpm"
           value={tel.rpm}
           expected={running ? targetRpm : 0}
@@ -362,6 +378,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Coolant"
+          onMath={() => set({ math: 'coolant' })}
           unit="°C"
           value={tel.coolantC}
           expected={exp.coolantC}
@@ -380,6 +397,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Oil temp"
+          onMath={() => set({ math: 'oilTemp' })}
           unit="°C"
           value={tel.oilC}
           expected={exp.oilC}
@@ -394,9 +412,11 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Oil pressure"
+          onMath={() => set({ math: 'oilPress' })}
           unit="bar"
           value={tel.oilPressBar}
-          expected={exp.oilPressBar}
+          // compared at the measured oil temperature (draft §17.3), the same expectation Δ uses
+          expected={ch('oilPressBar')?.expected ?? exp.oilPressBar}
           min={0}
           max={5}
           decimals={2}
@@ -409,6 +429,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Voltage"
+          onMath={() => set({ math: 'voltage' })}
           unit="V"
           value={tel.busV}
           expected={exp.busV}
@@ -424,6 +445,7 @@ function Signals() {
       <StaggerItem>
         <Gauge
           label="Vibration RMS"
+          onMath={() => set({ math: 'vibration' })}
           unit="m/s²"
           value={spectral?.vib.rms ?? 0}
           expected={exp.vibRmsMs2}

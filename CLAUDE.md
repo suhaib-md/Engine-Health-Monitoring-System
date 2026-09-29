@@ -62,7 +62,7 @@ Login, database server, fleet/multi-engine views, Isolation Forest, neural netwo
 | State | Zustand, with transient subscriptions for 60 fps values (no React re-render per tick) |
 | 3D | three.js via @react-three/fiber + @react-three/drei (installed in Phase 5) |
 | Charts | uPlot (installed; theme in `src/ui/uplotTheme.ts`). SVG preview charts in `src/ui/charts/` until live data |
-| Math display | KaTeX (installed in Phase 8) |
+| Math display | KaTeX (lazy-loaded chunk with the Math page and drawer; fonts bundled, works offline) |
 | FFT | Own radix-2 implementation in `analytics/fft.ts` |
 | Styling | Tailwind v4 (`@tailwindcss/vite`), IgniSense design tokens in `src/index.css` |
 | Motion | `motion` (Framer Motion successor), `motion/react` |
@@ -86,7 +86,7 @@ src/
   analytics/   residuals, features, fft, mahalanobis, cusum, diagnosis, health, rul, alerts
   sources/     simSource, replaySource (CSV), serialSource (ESP32 / OBD-II stub)
   worker/      simLoop.ts (testable loop: source -> twin -> analytics, runs scenarios on the simulated clock),
-               scenarios.ts (hero + overheat scripts), sim.worker.ts (thin Worker wrapper, 20 Hz snapshots),
+               scenarios.ts (hero + overheat scripts), blind.ts (blind-mode deck; the answer stays in the worker), sim.worker.ts (thin Worker wrapper, 20 Hz snapshots),
                protocol.ts (Command / Snapshot types)
   three/       EngineScene (Canvas, offline Lightformer environment, contact shadows, grid, fog, bloom,
                camera rig, fps probe; lazy-loaded), Engine (procedural I4 driven each frame from
@@ -101,7 +101,9 @@ src/
     pages/       LiveTwin, Trends, Vibration, Math, Validation, Report, Debug (live sim table)
     sim/         simClient.ts (worker, `useSim`, `sendSim`, control sync), history.ts (chart ring buffer, outside React)
     format.ts    clock + residual → status helpers
-    ScenarioBar.tsx  hero-scenario button + narration strip
+    ScenarioBar.tsx  hero-scenario button + narration strip; BlindBar.tsx  blind challenge (sealed cards, verdict, reveal)
+    math/        bindings.ts (per-gauge equation chains from a snapshot, pure + tested), tex.ts (LaTeX numbers,
+                 substituted lines), MathView.tsx (KaTeX, lazy), MathDrawer.tsx (right-side drawer opened from a gauge value)
     charts/      LiveChart.tsx (uPlot, transient 4 Hz redraw), VibrationCharts.tsx (order spectrum, misfire polar, crank waveforms)
   tests/       cross-module/scenario tests (unit tests sit next to their files as *.test.ts)
 docs/          source documents, open questions, calibration log
@@ -393,12 +395,14 @@ Doc: review *New physics: one crank angle drives everything*; draft §11, §13, 
 ### Phase 8: Show the math + blind mode
 Doc: review *Features* (first two rows).
 
-- [ ] Math panel: click a gauge value to see the KaTeX formula with live numbers substituted
-- [ ] At least one equation per subsystem (cooling, oil, friction/energy, electrical, vibration, misfire)
-- [ ] Show the math page listing all registered equations with symbols and units
-- [ ] Blind mode: a hidden fault is picked, the system names it, then a reveal button shows the answer
+- [x] Math panel: click a gauge value to see the KaTeX formula with live numbers substituted
+- [x] At least one equation per subsystem (cooling, oil, friction/energy, electrical, vibration, misfire)
+- [x] Show the math page listing all registered equations with symbols and units
+- [x] Blind mode: a hidden fault is picked, the system names it, then a reveal button shows the answer
 
 **Exit checks:** Substituted numbers equal the gauge values. A blind run with each fault type is named correctly.
+
+✅ Registry now has 27 equations (six new: oil temperature balance, 2× sensor acceleration, healthy vibration RMS, half-order amplitude, missing torque, misfire phase), 24 with live-substitution templates. Clicking any gauge value (or its ƒ(x) mark), the part panel's button or the misfire panel opens a right-side drawer: the chain of equations with today's numbers, colour-tagged measured / Twin state / healthy assumption / inferred / constant, a Hold switch, and a 'checks against the screen' table. The Math page has the same live view for all seven gauges plus every equation with its symbols and units. KaTeX is lazy-loaded. **Exit checks:** (1) every substituted number equals the gauge value in six engine states (off, cold idle, warm, pump fault, cooling fault, misfire), including between two analytics ticks, a bug the browser caught and the test now covers; each displayed line also recomputes by hand to its displayed result (a small LaTeX evaluator in `src/tests/texEval.ts`); (2) blind mode deals six sealed cards shuffled in the worker; every card is named correctly at the reveal (oil pump, cooling, cylinders 1–4) and the snapshot never carries the answer before it. Checked in a real browser (Edge, `?no3d`, no console errors): oil-pressure drawer ✓ EQUAL; card C was oil-pump wear, named 'Lubrication-system degradation' 1:47 after the pick. Open: Q-46, Q-48.
 
 ---
 
@@ -478,3 +482,4 @@ _One line per completed phase: date, phase, result, open issues._
 - 2026-09-29: **Phase 5 visual upgrade (user feedback: 'make it look realistic and cool').** Detailed procedural parts: grooved pistons, I-beam rods, counterweighted crank, head with cam cover, twin camshafts and 8 valves driven by a new `physics/cycle.ts` (4-stroke phase, firing order 1-3-4-2, valve timing, combustion glow; 6 tests), per-cylinder firing flash + light, intake plenum, exhaust 4-into-1, finned radiator, shrouded fan, hoses, accessory belt. Offline studio environment (Lightformers, no HDR download), contact shadows, fading grid, fog, bloom, vignette. Heat-mapped block outline instead of solid boxes. Markers are now a status diamond; the label slides out on hover and stays open only for a faulty part, always opening away from the engine. 71 meshes. 103 tests; lint/typecheck/build clean. User measured 60 fps before the upgrade; re-check on the GPU (Q-36).
 - 2026-09-29: **Phase 6 complete (hero scenario).** Scripted scenarios run on the simulated clock inside the worker (`worker/scenarios.ts`); one-click **Run hero scenario**, narration strip and a scenario picker; controls mirror back to the sliders. Cold start reads 2.54 bar and settles as the oil warms; the oil-pump fault is diagnosed. Three runs at different chunkings are identical (tested); one full run checked in a real browser. New Q-43, Q-44.
 - 2026-09-29: **Phase 7 complete (crank angle, vibration, misfire).** Crank-angle torque model, vibration synthesis, own FFT with order tracking, misfire detection that names the cylinder from the 0.5× phase, live Vibration page with polar plot, vibration gauge, 3D flash suppression and F₂ shake, adaptive 3D quality (Q-36). All review goldens reproduce; every cylinder is named correctly through the whole chain. 182 tests; lint/typecheck/build clean. New Q-39 – Q-42, Q-45; Q-12/Q-13/Q-14/Q-22/Q-25 moved on. Next: Phase 8 (Show the math + blind mode).
+- 2026-09-29: **Phase 8 complete (Show the math + blind mode).** KaTeX drawer from any gauge value and a live Math page, 27 registered equations with substitution templates proven to evaluate to their compute(); per-gauge bindings whose numbers equal the gauges (tested in six states); blind challenge with sealed, worker-shuffled cards, every fault named correctly at the reveal. Oil-pressure ghost now uses the measured-oil-temperature expectation (Q-47); `?no3d` switch (Q-49). 293 tests; lint/typecheck/build clean. Next: Phase 9 (advanced analytics).

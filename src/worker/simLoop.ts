@@ -1,10 +1,12 @@
 import { PROFILE, type EngineProfile } from '../engine/profile';
-import { HERO_SEED } from '../lib/rng';
+import { HERO_SEED, createRng } from '../lib/rng';
+import { BLIND_DECK, BLIND_SETTINGS } from './blind';
 import type { Telemetry } from '../telemetry';
 import { SimSource } from '../sources';
 import { Twin, type TwinExpected } from '../twin';
 import { Analytics, ANALYTICS, type AnalyticsState } from '../analytics';
 import type {
+  BlindStatus,
   Command,
   FaultEvent,
   ScenarioStatus,
@@ -60,6 +62,9 @@ export class SimLoop {
   /** simulated time at which each step of the current scenario fired (for tests and captions) */
   scenarioFired_t: number[] = [];
   private settingsRev = 0;
+  /** blind challenge: the shuffled deck stays here, in the worker (never in a snapshot) */
+  private blind: { order: number[]; status: BlindStatus } | null = null;
+  private deals = 0;
 
   constructor(
     seed: number = HERO_SEED,
@@ -79,6 +84,7 @@ export class SimLoop {
     this.stepCount = 0;
     this.accum_s = 0;
     this.run = null;
+    this.blind = null;
     this.windows = null;
     this.windowForAnalytics = false;
     this.postedSeq = 0;
@@ -172,10 +178,24 @@ export class SimLoop {
       case 'stopScenario':
         this.run = null;
         break;
+      case 'blindDeal':
+        this.blindDeal();
+        break;
+      case 'blindPick':
+        this.blindPick(cmd.card);
+        break;
+      case 'blindReveal':
+        this.blindReveal();
+        break;
+      case 'blindEnd':
+        if (this.blind) this.handle({ type: 'clearFaults' });
+        this.blind = null;
+        break;
       case 'injectFault': {
         this.source.plant.injectFault(cmd.fault, cmd.severity, cmd.onset);
-        const name =
-          cmd.fault === 'oilPump'
+        const name = this.blind
+          ? 'HIDDEN FAULT'
+          : cmd.fault === 'oilPump'
             ? 'PUMP FAULT'
             : cmd.fault === 'cooling'
               ? 'COOLING FAULT'
@@ -212,6 +232,60 @@ export class SimLoop {
       this.analyticsState = this.analytics.update(tel, this.expected, dt * ANALYTICS.everyNSteps);
     }
     if (dt > 0) this.advanceScript();
+    if (dt > 0) this.watchBlind();
+  }
+
+  /** Shuffle a fresh deck (seeded, so a replay deals the same order), heal the engine, run it at part load. */
+  private blindDeal() {
+    this.run = null;
+    this.source.plant.clearFaults();
+    const rng = createRng((this.seed ^ 0x9e3779b9) + 7919 * ++this.deals);
+    const order = BLIND_DECK.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(rng.next() * (i + 1));
+      [order[i], order[j]] = [order[j]!, order[i]!];
+    }
+    this.handle({ type: 'set', settings: BLIND_SETTINGS });
+    this.settingsRev++;
+    this.source.plant.start();
+    this.blind = {
+      order,
+      status: {
+        cards: order.length,
+        picked: null,
+        pickedAt: null,
+        firstWarningAt: null,
+        answer: null,
+      },
+    };
+  }
+
+  private blindPick(card: number) {
+    const b = this.blind;
+    if (!b || b.status.picked != null || card < 0 || card >= b.order.length) return;
+    const c = BLIND_DECK[b.order[card]!]!;
+    this.handle({ type: 'injectFault', fault: c.fault, severity: c.severity, onset: c.onset });
+    b.status = { ...b.status, picked: card, pickedAt: this.telemetry.t };
+  }
+
+  /** Records when the monitor first escalated after the pick (from analytics output only). */
+  private watchBlind() {
+    const b = this.blind;
+    const a = this.analyticsState;
+    if (!b || b.status.picked == null || b.status.firstWarningAt != null || !a) return;
+    if (a.explanation && (a.overallLevel === 'WARNING' || a.overallLevel === 'CRITICAL'))
+      b.status = { ...b.status, firstWarningAt: this.telemetry.t };
+  }
+
+  private blindReveal() {
+    const b = this.blind;
+    if (!b || b.status.picked == null) return;
+    const c = BLIND_DECK[b.order[b.status.picked]!]!;
+    const verdict = this.analyticsState?.explanation?.fault ?? null;
+    b.status = {
+      ...b.status,
+      answer: { label: c.label, expected: c.expected, verdict, correct: verdict === c.expected },
+    };
   }
 
   /** Run whole fixed steps covering `sim_s` simulated seconds (remainder carried over). */
@@ -260,6 +334,7 @@ export class SimLoop {
       faultEvents: this.faultEvents,
       windows: fresh,
       scenario: this.scenarioStatus(),
+      blind: this.blind ? this.blind.status : null,
       settings: this.settings,
       settingsRev: this.settingsRev,
     };

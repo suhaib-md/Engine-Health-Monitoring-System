@@ -36,5 +36,11 @@ export const electricalEquations = [
     },
     output: { symbol: 'V', unit: 'V', label: 'bus voltage' },
     compute: ({ N, H_alt }) => busVoltage_V(N, H_alt),
+    substitute: (s) =>
+      s.i.N <= 0
+        ? String.raw`V_{bat} = 12.6`
+        : s.i.N < 400
+          ? String.raw`V_{crank} = 10.5 \quad \left(N = ${s.v('N')} < 400,\ \text{starter draw}\right)`
+          : String.raw`12.6 + ${s.v('H_alt')}\left(1 - e^{-${s.v('N')}/600}\right)(14.4 - 12.6) - 0.2`,
   }),
 ];

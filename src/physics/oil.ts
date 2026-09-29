@@ -74,6 +74,7 @@ export const oilEquations = [
     inputs: { T_o: { symbol: 'T_o', unit: '°C', label: 'oil temperature' } },
     output: { symbol: String.raw`\mu_{rel}`, unit: '', label: 'relative viscosity' },
     compute: ({ T_o }) => viscosityRatio(T_o),
+    substitute: (s) => String.raw`e^{-0.015\,\left(${s.v('T_o')} - 90\right)}`,
   }),
   defineEquation<{ N: number; T_o: number; H_pump: number; W_b: number }>({
     id: 'oil.pressure',
@@ -89,5 +90,37 @@ export const oilEquations = [
     output: { symbol: String.raw`\hat P_o`, unit: 'bar', label: 'oil pressure' },
     compute: ({ N, T_o, H_pump, W_b }) =>
       oilPressure_bar({ rpm: N, oil_C: T_o, pumpHealth: H_pump, bearingWear: W_b }),
+    substitute: (s) => {
+      const pump =
+        s.i.N >= 800
+          ? String.raw`1.5 + 0.0009\,\left(${s.v('N')} - 800\right)`
+          : String.raw`1.5 \cdot \frac{${s.v('N')}}{800}`;
+      const mu = s.n(viscosityRatio(s.i.T_o), 4);
+      return String.raw`\min\left[5,\ \left(${pump}\right) \cdot ${mu}^{0.5} \cdot \frac{${s.v('H_pump')}}{1 + 1.5 \cdot ${s.v('W_b')}}\right]`;
+    },
+  }),
+  defineEquation<{ Q_fric: number; D: number; T_c: number; T_o: number; T_amb: number }>({
+    id: 'oil.tempRate',
+    title: 'Oil temperature balance',
+    subsystem: 'lubrication',
+    latex: String.raw`\frac{dT_o}{dt} = \frac{s\,\dot Q_{fric}\,(1 + K_f D_{lube}) + K_{co}(T_c - T_o) - UA_o(T_o - T_{amb})}{C_o}`,
+    inputs: {
+      Q_fric: { symbol: String.raw`\dot Q_{fric}`, unit: 'W', label: 'friction power' },
+      D: { symbol: 'D_{lube}', unit: '', label: 'lubrication degradation' },
+      T_c: { symbol: 'T_c', unit: '°C', label: 'coolant temperature' },
+      T_o: { symbol: 'T_o', unit: '°C', label: 'oil temperature' },
+      T_amb: { symbol: 'T_{amb}', unit: '°C', label: 'ambient temperature' },
+    },
+    output: { symbol: 'dT_o/dt', unit: 'K/s', label: 'oil heating rate' },
+    compute: ({ Q_fric, D, T_c, T_o, T_amb }) =>
+      oilTempRate_Kps({
+        frictionPower_W: Q_fric,
+        lubeDegradation: D,
+        coolant_C: T_c,
+        oil_C: T_o,
+        ambient_C: T_amb,
+      }),
+    substitute: (s) =>
+      String.raw`\frac{0.35 \cdot ${s.v('Q_fric')}\,(1 + 0.5 \cdot ${s.v('D')}) + 250\,\left(${s.v('T_c')} - ${s.v('T_o')}\right) - 15\,\left(${s.v('T_o')} - ${s.v('T_amb')}\right)}{15{,}000}`,
   }),
 ];

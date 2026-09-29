@@ -86,5 +86,35 @@ export const vibrationEquations = [
       const w = rpmToRadps(N);
       return 4 * m * r * w * w * lambda;
     },
+    substitute: (s) =>
+      String.raw`4 \cdot ${s.v('m')} \cdot ${s.v('r')} \cdot \left(\frac{2\pi \cdot ${s.v('N')}}{60}\right)^2 \cdot ${s.v('lambda')}`,
+  }),
+  defineEquation<{ F2: number }>({
+    id: 'vib.sensorAccel',
+    title: '2× acceleration at the sensor',
+    subsystem: 'vibration',
+    latex: String.raw`a_2 = \frac{k_m\,F_2}{m_{block}}`,
+    inputs: { F2: { symbol: 'F_2', unit: 'N', label: 'peak second-order force' } },
+    output: { symbol: 'a_2', unit: 'm/s²', label: 'peak 2× acceleration at the sensor' },
+    compute: ({ F2 }) => (PROFILE.vibration.mountFactor * F2) / PROFILE.vibration.blockMass_kg,
+    substitute: (s) => String.raw`\frac{0.1 \cdot ${s.v('F2')}}{150}`,
+  }),
+  defineEquation<{ N: number; T: number }>({
+    id: 'vib.healthyRms',
+    title: 'Healthy vibration RMS (Twin)',
+    subsystem: 'vibration',
+    latex: String.raw`a_{rms} = \sqrt{\tfrac12\left(a_2 + \tfrac23 kT\right)^2 + \tfrac12 a_1^2 + k^2T^2\left(\tfrac{\pi^2}{8} - \tfrac{11}{9}\right) + \sigma^2},\quad a_1 = 0.05\,a_2`,
+    inputs: {
+      N: { symbol: 'N', unit: 'rpm', label: 'engine speed' },
+      T: { symbol: 'T', unit: 'N·m', label: 'resisting torque' },
+    },
+    output: { symbol: 'a_{rms}', unit: 'm/s²', label: 'healthy vibration RMS' },
+    compute: ({ N, T }) => healthyVibRms_ms2(N, T),
+    substitute: (s) => {
+      if (s.i.N <= 0) return '0'; // engine stopped: no vibration expected
+      const a2 = secondaryAccel_ms2(s.i.N);
+      const a1 = PROFILE.vibration.imbalance1xFraction * a2;
+      return String.raw`\sqrt{\tfrac12\left(${s.n(a2, 3)} + \tfrac23 \cdot 0.008 \cdot ${s.v('T')}\right)^2 + \tfrac12 \cdot ${s.n(a1, 3)}^2 + 0.008^2 \cdot ${s.v('T')}^2 \cdot ${s.n(Math.PI ** 2 / 8 - 11 / 9, 4)} + 0.03^2}`;
+    },
   }),
 ];

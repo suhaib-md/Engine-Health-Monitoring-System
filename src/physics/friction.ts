@@ -31,6 +31,10 @@ export const frictionEquations = [
     },
     output: { symbol: 'FMEP', unit: 'kPa', label: 'friction mean effective pressure' },
     compute: ({ N, T_o }) => fmep_kPa(N, T_o),
+    substitute: (s) => {
+      const n = s.n(s.i.N / 1000, 3);
+      return String.raw`\left(97 + 15 \cdot ${n} + 5 \cdot ${n}^2\right)\left(1 + \frac{\max(0,\ 90 - ${s.v('T_o')})}{70}\right)`;
+    },
   }),
   defineEquation<{ FMEP: number }>({
     id: 'friction.torque',
@@ -40,5 +44,7 @@ export const frictionEquations = [
     inputs: { FMEP: { symbol: 'FMEP', unit: 'kPa', label: 'friction mean effective pressure' } },
     output: { symbol: 'T_{fric}', unit: 'N·m', label: 'friction torque' },
     compute: ({ FMEP }) => frictionTorque_Nm(FMEP),
+    substitute: (s) =>
+      String.raw`\frac{${s.v('FMEP')} \times 10^{3} \cdot ${s.n(PROFILE.geometry.displacement_m3 * 1e3, 4)} \times 10^{-3}}{4\pi}`,
   }),
 ];

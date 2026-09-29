@@ -79,6 +79,14 @@ export function healthyRipplePP_rpm(rpm: number, resist_Nm: number, p: EnginePro
 const HALF_ORDER_PULSE = (4 * Math.SQRT2) / 3 / (2 * Math.PI);
 
 /**
+ * K in A_0.5 = K · T · m / (4 − m): the 0.5× crank-speed amplitude (rpm) per N·m of resisting torque,
+ * K = (60/2π) · 2 c_½ · 2π / (J ω) = 120 c_½ / (J ω).
+ */
+export function halfOrderGain(rpm: number, p: EngineProfile = PROFILE) {
+  return rpm > 0 ? (120 * HALF_ORDER_PULSE) / (p.geometry.crankInertia_kgm2 * rpmToRadps(rpm)) : 0;
+}
+
+/**
  * 0.5× crank-speed amplitude (rpm) when a fraction m of ONE cylinder's torque is missing
  * (m = 1 complete misfire, m = 1 − H_i). The governor has already re-scaled the other pulses, so
  * the missing pulse is m·A with A = 2π T_resist/(4 − m).
@@ -118,7 +126,10 @@ const wrap180 = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
  * +45° (cyl 1), +135° (cyl 2), −45° (cyl 3) and −135° (cyl 4).
  */
 export const misfirePhase_deg = (cyl: number, p: EngineProfile = PROFILE) =>
-  wrap180(45 - firingOffset_deg(cyl, p) / 2);
+  halfOrderPhase_deg(firingOffset_deg(cyl, p));
+
+/** 0.5× phase of a misfire in the cylinder that fires at crank angle θ_fire (deg after cylinder 1). */
+export const halfOrderPhase_deg = (fireAngle_deg: number) => wrap180(45 - fireAngle_deg / 2);
 
 /** The cylinder whose 90° sector contains a measured 0.5× phase. */
 export function cylinderFromPhase(phase_deg: number, p: EngineProfile = PROFILE): 1 | 2 | 3 | 4 {
@@ -242,6 +253,7 @@ export const crankEquations = [
     },
     output: { symbol: 'A', unit: 'N·m', label: 'half-sine pulse amplitude' },
     compute: ({ Tcyl }) => pulseAmplitude_Nm(Tcyl),
+    substitute: (s) => String.raw`2\pi \cdot ${s.v('Tcyl')}`,
   }),
   defineEquation<{ omega: number; dTheta: number; gas: number; load: number; J: number }>({
     id: 'crank.speedStep',
@@ -257,6 +269,8 @@ export const crankEquations = [
     },
     output: { symbol: String.raw`\omega_{k+1}`, unit: 'rad/s', label: 'next crank speed' },
     compute: ({ omega, dTheta, gas, load, J }) => speedStep_radps(omega, dTheta, gas, load, J),
+    substitute: (s) =>
+      String.raw`${s.v('omega')} + \frac{${s.v('dTheta')}}{${s.v('omega')} \cdot ${s.v('J')}}\left(${s.v('gas')} - ${s.v('load')}\right)`,
   }),
   defineEquation<{ T: number; H1: number; H2: number; H3: number; H4: number }>({
     id: 'crank.governor',
@@ -272,5 +286,53 @@ export const crankEquations = [
     },
     output: { symbol: 'T_{cmd}', unit: 'N·m', label: 'torque command' },
     compute: ({ T, H1, H2, H3, H4 }) => governorCommand_Nm(T, [H1, H2, H3, H4]),
+    substitute: (s) =>
+      String.raw`\frac{4 \cdot ${s.v('T')}}{${s.v('H1')} + ${s.v('H2')} + ${s.v('H3')} + ${s.v('H4')}}`,
+  }),
+  defineEquation<{ N: number; T: number; m: number }>({
+    id: 'crank.halfOrder',
+    title: 'Half-order crank-speed amplitude',
+    subsystem: 'combustion',
+    latex: String.raw`A_{0.5} = K\,T\,\frac{m}{4 - m},\quad K = \frac{120\,c_{\frac12}}{J\,\omega},\ c_{\frac12} = \frac{4\sqrt2}{3\cdot 2\pi}`,
+    inputs: {
+      N: { symbol: 'N', unit: 'rpm', label: 'engine speed' },
+      T: { symbol: 'T', unit: 'N·m', label: 'resisting torque' },
+      m: { symbol: 'm', unit: '', label: "missing fraction of one cylinder's torque" },
+    },
+    output: { symbol: 'A_{0.5}', unit: 'rpm', label: '0.5× crank-speed amplitude' },
+    compute: ({ N, T, m }) => halfOrderAmplitude_rpm(N, T, m),
+    substitute: (s) =>
+      String.raw`${s.n(halfOrderGain(s.i.N), 4)} \cdot ${s.v('T')} \cdot \frac{${s.v('m')}}{4 - ${s.v('m')}}`,
+  }),
+  defineEquation<{ N: number; T: number; A: number }>({
+    id: 'crank.missing',
+    title: 'Missing torque from the 0.5× amplitude',
+    subsystem: 'combustion',
+    latex: String.raw`m = \frac{4\,A_{0.5}}{K\,T + A_{0.5}}`,
+    inputs: {
+      N: { symbol: 'N', unit: 'rpm', label: 'engine speed' },
+      T: { symbol: 'T', unit: 'N·m', label: 'resisting torque' },
+      A: { symbol: 'A_{0.5}', unit: 'rpm', label: 'measured 0.5× amplitude' },
+    },
+    output: { symbol: 'm', unit: '', label: "missing fraction of one cylinder's torque" },
+    compute: ({ N, T, A }) => missingFractionFromHalfOrder(N, T, A),
+    substitute: (s) =>
+      String.raw`\frac{4 \cdot ${s.v('A')}}{${s.n(halfOrderGain(s.i.N), 4)} \cdot ${s.v('T')} + ${s.v('A')}}`,
+  }),
+  defineEquation<{ theta: number }>({
+    id: 'crank.misfirePhase',
+    title: 'Half-order phase of a misfire',
+    subsystem: 'combustion',
+    latex: String.raw`\varphi_{0.5} = 45^\circ - \frac{\theta_{fire}}{2}\quad(\text{wrapped to } \pm 180^\circ)`,
+    inputs: {
+      theta: {
+        symbol: String.raw`\theta_{fire}`,
+        unit: '°',
+        label: 'crank angle at which that cylinder fires, after cylinder 1',
+      },
+    },
+    output: { symbol: String.raw`\varphi_{0.5}`, unit: '°', label: '0.5× phase' },
+    compute: ({ theta }) => halfOrderPhase_deg(theta),
+    substitute: (s) => String.raw`45^\circ - \frac{${s.v('theta')}^\circ}{2}`,
   }),
 ];

@@ -184,3 +184,12 @@ Code: [src/analytics/config.ts](../src/analytics/config.ts). All PROVISIONAL dem
 - The per-cylinder spread in ripple (±0.6 rpm) comes from linear interpolation onto the 512-per-revolution grid; it is within 1.5 % of the review's 61.
 - Through the whole chain (Plant → sensors → Twin → analytics): every cylinder is named correctly at 800, 3,000 and 6,000 rpm; command ratio 1.33; healthy engine at three operating points never raises combustion evidence above 0.1.
 - Cost: one window (crank model + sensors + analysis) takes about 0.9 ms, so 60× time-warp uses about 5 % of a core for it.
+
+## Phase 8: Show the math and blind mode
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Registry: 27 equations, 24 with live substitution templates | FIXED | New: oil.tempRate, vib.sensorAccel, vib.healthyRms, crank.halfOrder, crank.missing, crank.misfirePhase. Tested: every template evaluates to its compute() and renders in KaTeX strict mode |
+| Display precision: temperatures in the balances 3 dp, ambient 2 dp, inferred health 3 dp, UA 2 dp | DERIVED | Chosen so a judge redoing the displayed arithmetic gets the displayed result (tested for every step in six engine states) |
+| K = 120·c½/(J·ω), c½ = 4√2/(3·2π) | DERIVED | Closed form behind A₀.₅ = K·T·m/(4 − m); K·T = 63.2 rpm at 3,000 rpm and 110 N·m |
+| Blind deck severities and operating point | PROVISIONAL | Q-48 |

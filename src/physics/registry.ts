@@ -21,6 +21,18 @@ export type Subsystem =
   | 'vibration'
   | 'combustion';
 
+/**
+ * What a substitution template gets. The caller (the UI) decides how a live input looks, so
+ * physics stays free of presentation: `v` renders one of the equation's inputs (coloured by
+ * where the number came from), `n` renders a plain number (a profile constant or an
+ * intermediate result), and `i` holds the raw input values for intermediates.
+ */
+export interface Sub<I> {
+  v: (k: keyof I & string) => string;
+  n: (x: number, digits?: number) => string;
+  i: I;
+}
+
 export interface Equation<I extends Record<string, number>> {
   id: string;
   title: string;
@@ -29,15 +41,29 @@ export interface Equation<I extends Record<string, number>> {
   inputs: { [K in keyof I]: SymbolInfo };
   output: SymbolInfo;
   compute: (inputs: I) => number;
+  /**
+   * The right-hand side with numbers in place of symbols (LaTeX), for "Show the math". It must
+   * evaluate to `compute(inputs)`; the UI appends "= result". Without it the UI lists the inputs.
+   */
+  substitute?: (s: Sub<I>) => string;
 }
 
 /** Type-erased form stored in the registry list. */
-export interface RegisteredEquation extends Omit<Equation<Record<string, number>>, 'compute'> {
+export interface RegisteredEquation extends Omit<
+  Equation<Record<string, number>>,
+  'compute' | 'substitute'
+> {
   compute: (inputs: Record<string, number>) => number;
+  substitute?: (s: Sub<Record<string, number>>) => string;
 }
 
 export function defineEquation<I extends Record<string, number>>(
   eq: Equation<I>,
 ): RegisteredEquation {
-  return { ...eq, compute: (inputs) => eq.compute(inputs as I) } as RegisteredEquation;
+  const sub = eq.substitute;
+  return {
+    ...eq,
+    compute: (inputs) => eq.compute(inputs as I),
+    substitute: sub ? (s) => sub(s as unknown as Sub<I>) : undefined,
+  } as RegisteredEquation;
 }

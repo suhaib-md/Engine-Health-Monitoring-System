@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ScenarioId } from '../worker/protocol';
+import type { BindingId } from './math/bindings';
 
 /** UI-only state: navigation and test-bench controls. Simulation state comes from the worker (sim/simClient.ts). */
 
@@ -47,8 +48,11 @@ interface UiState {
   cylinder: 1 | 2 | 3 | 4;
   severity: number;
   faultMode: FaultMode;
-  blind: boolean;
   scenario: ScenarioId;
+  /** open "Show the math" drawer for this gauge (null = closed) */
+  math: BindingId | null;
+  /** gauge selected on the Math page */
+  mathPick: BindingId;
   set: (patch: Partial<Omit<UiState, 'set'>>) => void;
 }
 
@@ -69,7 +73,8 @@ export const useUi = create<UiState>((set) => ({
   cylinder: 3,
   severity: 0.6,
   faultMode: 'gradual',
-  blind: false,
   scenario: 'hero',
+  math: null,
+  mathPick: 'oilPress',
   set: (patch) => set(patch),
 }));

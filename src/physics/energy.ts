@@ -42,6 +42,7 @@ export const energyEquations = [
     inputs: { L: { symbol: 'L', unit: '', label: 'load fraction' } },
     output: { symbol: String.raw`\eta_i`, unit: '', label: 'indicated efficiency' },
     compute: ({ L }) => indicatedEfficiency(L),
+    substitute: (s) => String.raw`0.38\left(0.70 + 0.30 \cdot ${s.v('L')}\right)`,
   }),
   defineEquation<{ P_b: number; P_f: number; L: number }>({
     id: 'energy.fuelPower',
@@ -55,6 +56,8 @@ export const energyEquations = [
     },
     output: { symbol: String.raw`\dot Q_{fuel}`, unit: 'W', label: 'fuel power' },
     compute: ({ P_b, P_f, L }) => fuelPower_W(P_b, P_f, L),
+    substitute: (s) =>
+      String.raw`\frac{${s.v('P_b')} + ${s.v('P_f')} + 500}{${s.n(indicatedEfficiency(s.i.L), 4)}}`,
   }),
   defineEquation<{ Q_fuel: number; L: number }>({
     id: 'energy.coolantHeat',
@@ -67,5 +70,7 @@ export const energyEquations = [
     },
     output: { symbol: String.raw`\dot Q_{cool}`, unit: 'W', label: 'coolant heat' },
     compute: ({ Q_fuel, L }) => coolantHeatFraction(L) * Q_fuel,
+    substitute: (s) =>
+      String.raw`\left(0.34 - 0.12 \cdot ${s.v('L')}\right) \cdot ${s.v('Q_fuel')}`,
   }),
 ];

@@ -218,6 +218,7 @@ function MisfirePanel() {
     (x) => x.snapshot?.analytics?.evidence.find((e) => e.id === 'combustion')?.score ?? 0,
   );
   const cmd = useSim((x) => x.snapshot?.telemetry.torqueCmdNm);
+  const setUi = useUi((s) => s.set);
   const expCmd = useSim((x) => x.snapshot?.expected.torqueCmdNm);
   if (!s) return null;
   const active = s.misfire.missing >= ANALYTICS.misfire.nameAbove;
@@ -256,6 +257,9 @@ function MisfirePanel() {
         <span className="label">Misfire · diagnostic evidence score</span>
         <EvidenceBar score={score} />
       </div>
+      <Button variant="ghost" className="self-start" onClick={() => setUi({ math: 'misfire' })}>
+        ƒ(x) Show the math
+      </Button>
     </Panel>
   );
 }
