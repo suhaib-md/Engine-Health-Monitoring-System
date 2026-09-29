@@ -3,7 +3,7 @@ import { SimLoop } from '../worker/simLoop';
 import { scenarioById } from '../worker/scenarios';
 import type { ScenarioId } from '../worker/protocol';
 
-// Phase 6 gate: the hero scenario must play identically every run, whatever the time-warp.
+// Phase 6 gate: the reference scenario must play identically every run, whatever the time-warp.
 
 interface Sample {
   t: number;
@@ -52,7 +52,7 @@ function play(id: ScenarioId, chunk_s: number, horizon_s = 2000) {
   };
 }
 
-describe('hero scenario', () => {
+describe('oil-pump reference scenario', () => {
   const [r1, r10, r60] = [0.05, 0.5, 5].map((c) => play('hero', c)) as [
     ReturnType<typeof play>,
     ReturnType<typeof play>,

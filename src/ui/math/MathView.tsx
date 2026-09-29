@@ -7,7 +7,7 @@ import { TAG_COLOR, stepTex, texNum, unitTex } from './tex';
 import { color } from '../tokens';
 
 /**
- * KaTeX views for "Show the math". This module (and KaTeX, ~270 kB) loads only when the math
+ * KaTeX views for the calculation view. This module (and KaTeX, ~270 kB) loads only when the math
  * drawer or the Math page opens.
  */
 

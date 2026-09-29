@@ -5,8 +5,8 @@ import { EASE_OUT } from './motion';
 import { sendSim, useSim } from './sim/simClient';
 import { scenarioById } from '../worker/scenarios';
 
-/** One-click run of the hero scenario (fixed seed, plays identically every time). */
-export function RunHeroButton() {
+/** One-click run of the oil-pump wear scenario (fixed seed, plays identically every time). */
+export function RunScenarioButton() {
   const hero = scenarioById('hero');
   return (
     <Button
@@ -15,7 +15,7 @@ export function RunHeroButton() {
       onClick={() => sendSim({ type: 'runScenario', id: 'hero' })}
     >
       <Play aria-hidden className="size-4 fill-current" />
-      Run hero scenario
+      Run oil-pump scenario
     </Button>
   );
 }

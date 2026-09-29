@@ -6,7 +6,7 @@ import { stepTex } from '../ui/math/tex';
 import type { PlantFaultId } from '../plant';
 import { evalTex } from './texEval';
 
-// Phase 8 exit check: the numbers substituted in "Show the math" equal the gauge values, in every
+// Phase 8 exit check: the numbers substituted in the calculation view equal the gauge values, in every
 // engine state the demo visits (cold start, warm, each fault).
 
 function state(name: string) {

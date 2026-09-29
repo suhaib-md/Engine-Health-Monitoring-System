@@ -2,7 +2,7 @@ import type { SymbolInfo } from '../../physics';
 import { color } from '../tokens';
 import type { Step, Tag } from './bindings';
 
-/** LaTeX building for "Show the math": numbers, units, and a step's substituted line. Pure. */
+/** LaTeX building for the calculation view: numbers, units, and a step's substituted line. Pure. */
 
 /** Number in LaTeX: thousands as {,}, no "-0.00". */
 export function texNum(x: number, d = 2): string {

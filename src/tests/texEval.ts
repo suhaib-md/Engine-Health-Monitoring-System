@@ -1,8 +1,8 @@
 /**
- * A tiny LaTeX → JavaScript translator for the subset the "Show the math" substitution templates
+ * A tiny LaTeX → JavaScript translator for the subset the calculation substitution templates
  * use (fractions, roots, powers, e^, min/max/clip, cos/sin, \cdot, \times, brackets, thousands
  * separators {,}). Tests use it to prove each substituted formula evaluates to the equation's own
- * compute(), so what a judge reads on screen is the arithmetic the simulator does.
+ * compute(), so what a reader sees on screen is the arithmetic the simulator does.
  */
 
 type Tok = { kind: 'operand' | 'open' | 'close' | 'op' | 'fn' | 'comma'; text: string };

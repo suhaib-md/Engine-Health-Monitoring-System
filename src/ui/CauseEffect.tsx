@@ -27,7 +27,7 @@ const EFFECTS: Node[] = [
   { id: 'vib', label: 'Vibration ↑', sub: '1×, impacts, rocking' },
   { id: 'cmd', label: 'Torque command ↑', sub: 'governor makes up' },
   { id: 'volt', label: 'Bus voltage ↓', sub: 'less charging' },
-  { id: 'impossible', label: 'Impossible reading', sub: 'beats the physics' },
+  { id: 'impossible', label: 'Implausible reading', sub: 'exceeds physical limits' },
 ];
 const SENSORS: Node[] = [
   { id: 's_press', label: 'Oil-pressure sensor' },

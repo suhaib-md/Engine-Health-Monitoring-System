@@ -9,10 +9,10 @@ export const PAGES = [
   { id: 'live', label: 'Live Twin' },
   { id: 'trends', label: 'Trends' },
   { id: 'vibration', label: 'Vibration' },
-  { id: 'math', label: 'Math' },
+  { id: 'math', label: 'Equations' },
   { id: 'validation', label: 'Validation' },
   { id: 'report', label: 'Report' },
-  { id: 'debug', label: 'Debug' },
+  { id: 'debug', label: 'Data' },
 ] as const;
 
 export type PageId = (typeof PAGES)[number]['id'];
@@ -53,7 +53,7 @@ interface UiState {
   severity: number;
   faultMode: FaultMode;
   scenario: ScenarioId;
-  /** open "Show the math" drawer for this gauge (null = closed) */
+  /** open the calculation drawer for this gauge (null = closed) */
   math: BindingId | null;
   /** gauge selected on the Math page */
   mathPick: BindingId;

@@ -35,7 +35,7 @@ export function DebugPage() {
     <div className="flex flex-col gap-14">
       <SectionHeader
         index="07"
-        title="Debug & data"
+        title="Data & sources"
         description="Raw telemetry beside what the blind Twin expects, and the data source feeding them. On a healthy engine the residual is pure sensor noise (|z| ≈ 1)."
         aside={
           snap.source.kind !== 'sim' ? undefined : (

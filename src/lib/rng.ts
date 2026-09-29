@@ -1,6 +1,6 @@
 /**
  * Seeded pseudo-random numbers. ALL randomness in IgniSense goes through here so a given
- * seed replays the exact same run (the hero demo must look identical every time).
+ * seed replays the exact same run (the reference scenarios must play identically every time).
  */
 export interface Rng {
   /** uniform in [0, 1) */
@@ -52,5 +52,5 @@ export function createRng(seed: number): Rng {
   };
 }
 
-/** Default seed for the hero scenario. */
+/** Default seed for the reference scenarios. */
 export const HERO_SEED = 20260928;

@@ -38,7 +38,7 @@ function Body() {
         <span className="label">No crank-angle window yet</span>
         <p className="m-0 max-w-2xl leading-relaxed text-fg-2">
           A window of 16 crank revolutions arrives once per simulated second while the engine is
-          running. Start the engine (or run the hero scenario) to fill this page.
+          running. Start the engine (or run the oil-pump scenario) to fill this page.
         </p>
         <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
           Open test bench
@@ -260,7 +260,7 @@ function MisfirePanel() {
         <EvidenceBar score={score} />
       </div>
       <Button variant="ghost" className="self-start" onClick={() => setUi({ math: 'misfire' })}>
-        ƒ(x) Show the math
+        ƒ(x) View calculation
       </Button>
     </Panel>
   );

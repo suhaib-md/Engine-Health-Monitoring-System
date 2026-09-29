@@ -7,7 +7,7 @@ import { formatClock } from './format';
 const letter = (i: number) => String.fromCharCode(65 + i);
 
 /**
- * Blind challenge strip (Live Twin). A judge picks one of the face-down cards; the worker injects
+ * Blind test strip (Live Twin). The user selects one of the sealed cases; the worker injects
  * the fault on it and the UI never learns which one until Reveal. Meanwhile the system's verdict
  * comes from the same analytics everyone can see.
  */
@@ -18,7 +18,7 @@ export function BlindBar() {
       {blind && (
         <motion.section
           key="blind"
-          aria-label="Blind challenge"
+          aria-label="Blind test"
           className="overflow-hidden"
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
@@ -28,32 +28,32 @@ export function BlindBar() {
           <div className="flex flex-col gap-7 border border-line border-l-4 border-l-fault-marker bg-panel p-6 md:p-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex flex-col gap-2">
-                <span className="label">Blind challenge</span>
+                <span className="label">Blind test</span>
                 <h3 className="m-0 text-h2 font-bold">
                   {blind.picked == null
-                    ? 'Pick a sealed card'
+                    ? 'Select a sealed case'
                     : blind.answer
                       ? blind.answer.correct
                         ? 'Named correctly'
                         : 'Not named correctly'
-                      : `Card ${letter(blind.picked)} is in the engine`}
+                      : `Case ${letter(blind.picked)} is in the engine`}
                 </h3>
                 <p className="m-0 max-w-3xl leading-relaxed text-fg-2">
                   {blind.picked == null
-                    ? 'Each card hides one fault. The worker shuffled them; nobody on this screen knows which is which. The analytics will have to find it from the sensors alone.'
+                    ? 'Each case hides one fault. The cases were shuffled inside the simulation, so the interface does not know which is which. The monitor has to identify the fault from the sensor data alone.'
                     : blind.answer
-                      ? 'The card is face up. The verdict below is what the monitor concluded before it was turned over.'
-                      : 'The fault is developing now. Watch the gauges drift from their ghosts and the evidence build, then turn the card over.'}
+                      ? 'The answer is revealed. The verdict below is what the monitor concluded before the reveal.'
+                      : 'The fault is developing now. Watch the gauges move away from the Twin markers and the evidence build, then reveal the answer.'}
                 </p>
               </div>
               <div className="flex shrink-0 gap-3">
                 {blind.answer && (
                   <Button variant="secondary" onClick={() => sendSim({ type: 'blindDeal' })}>
-                    Deal again
+                    New test
                   </Button>
                 )}
                 <Button variant="ghost" onClick={() => sendSim({ type: 'blindEnd' })}>
-                  End · repair
+                  End test · repair
                 </Button>
               </div>
             </div>
@@ -75,7 +75,7 @@ export function BlindBar() {
                     animate={{ opacity: faded ? 0.3 : 1, y: chosen ? -6 : 0 }}
                     whileHover={blind.picked == null ? { y: -4 } : undefined}
                     transition={{ duration: 0.25, ease: EASE_OUT }}
-                    aria-label={`Card ${letter(i)}`}
+                    aria-label={`Case ${letter(i)}`}
                   >
                     <span className="text-[28px] font-extrabold text-fg">{letter(i)}</span>
                     <span className="text-label text-fg-3">
@@ -128,7 +128,7 @@ function Verdict() {
             animate={{ opacity: 1, rotateX: 0 }}
             transition={{ duration: 0.4, ease: EASE_OUT }}
           >
-            <span className="label">On the card</span>
+            <span className="label">Injected fault</span>
             <span className="text-h2 font-bold">{a.label}</span>
             <span className={`num text-xs font-bold ${a.correct ? 'text-ok' : 'text-crit'}`}>
               {a.correct ? `✓ CORRECT · expected “${a.expected}”` : `✗ expected “${a.expected}”`}
@@ -136,14 +136,14 @@ function Verdict() {
           </motion.div>
         ) : (
           <motion.div key="hidden" className="flex flex-col gap-2" exit={{ opacity: 0 }}>
-            <span className="label">On the card</span>
+            <span className="label">Injected fault</span>
             <span className="text-h2 font-bold tracking-[0.3em] text-fg-3">• • • • •</span>
           </motion.div>
         )}
       </AnimatePresence>
       {!a && (
         <Button variant="primary" onClick={() => sendSim({ type: 'blindReveal' })}>
-          Reveal the card
+          Reveal answer
         </Button>
       )}
     </div>

@@ -2,7 +2,7 @@ import type { FaultOnset, MonitoredChannel, PlantFaultId, SensorFaultKind } from
 import type { SimSettings } from './protocol';
 
 /**
- * Blind-mode deck (review, Features: "a judge secretly picks a fault"). Each card is a hidden
+ * Blind-mode deck (review, Features: a hidden fault is picked). Each card is a hidden
  * fault: an engine fault the Plant develops, or a broken sensor. The deck is shuffled with the
  * seeded RNG inside the worker and the UI only ever learns the card's position, never its content,
  * until the reveal. The answer is compared with the monitor's explanation, which is computed from

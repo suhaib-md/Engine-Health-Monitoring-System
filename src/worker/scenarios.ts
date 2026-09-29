@@ -52,7 +52,7 @@ function hotCity(): Scenario {
       title: clogging ? `Stop-and-go ${n} · radiator clogging` : `Stop-and-go ${n} · driving`,
       caption: clogging
         ? 'Coolant sits above the Twin a little more each cycle. Stop-and-go makes the trend noisy, so an RUL appears only if it is statistically significant.'
-        : 'Drive hard at 3,500 rpm / 160 N·m in 40 °C heat. The fan cycles; the Twin follows it, so no alarm.',
+        : 'Sustained load at 3,500 rpm / 160 N·m in 40 °C heat. The fan cycles; the Twin follows it, so no alarm.',
       after_s: 60,
       commands: [drive],
     },
@@ -65,7 +65,7 @@ function hotCity(): Scenario {
   ];
   return {
     id: 'hotCity',
-    name: 'Hot city: stop-and-go at 40 °C',
+    name: 'Urban stop-and-go at 40 °C',
     blurb:
       '40 °C ambient, 60 s driving then 60 s idling. Healthy for four cycles, then the radiator starts to clog.',
     seed: HERO_SEED,
@@ -95,7 +95,7 @@ function hotCity(): Scenario {
       {
         title: 'Diagnosis',
         caption:
-          'The thermal residual holds, the alert escalates and the card names the cooling system.',
+          'The thermal residual holds, the alert escalates and the diagnosis card names the cooling system.',
         after_s: 0,
         until: 'diagnosed',
         maxWait_s: 1800,
@@ -114,16 +114,16 @@ function hotCity(): Scenario {
 function tour(): Scenario {
   return {
     id: 'tour',
-    name: 'Full demo tour (≈5 min)',
+    name: 'Full walkthrough (≈5 min)',
     blurb:
-      'Cold start → oil pump caught early by CUSUM → RUL → cylinder 3 misfire named by its phase → coolant sensor spike proven impossible.',
+      'Cold start → oil pump caught early by CUSUM → RUL → cylinder 3 misfire identified by its phase → coolant sensor spike shown to be physically implausible.',
     seed: HERO_SEED,
     initial: { targetRpm: 800, torque_Nm: 0, ambient_C: 20, fanMode: 'auto', warp: 1 },
     steps: [
       {
         title: '1 · Cold start',
         caption:
-          'Real time. Cold oil is thick, so pressure reads about 2.5 bar. Pistons move by the slider-crank equation, slowed 100× on screen. Ghost markers sit on the needles: measured equals expected.',
+          'Real time. Cold oil is thick, so pressure reads about 2.5 bar. Pistons move by the slider-crank equation, slowed 100× on screen. The Twin markers sit on the needles: measured equals expected.',
         after_s: 0,
         commands: [{ type: 'start' }],
       },
@@ -144,7 +144,7 @@ function tour(): Scenario {
       {
         title: '4 · The oil pump starts to wear',
         caption:
-          'A small, growing pump fault. Watch CUSUM flag the oil pressure while it still looks acceptable, then the rules follow and the card lists its evidence. Click the oil-pressure value to show the math.',
+          'A small, growing pump fault. Watch CUSUM flag the oil pressure while it still looks acceptable, then the rules follow and the card lists its evidence. Click the oil-pressure value to see its calculation.',
         after_s: 90,
         commands: [{ type: 'injectFault', fault: 'oilPump', severity: 0.25, onset: 'progressive' }],
       },
@@ -199,7 +199,7 @@ export const SCENARIOS: Scenario[] = [
   tour(),
   {
     id: 'hero',
-    name: 'Hero: cold start to oil-pump wear',
+    name: 'Cold start to oil-pump wear',
     blurb:
       'Cold start at 20 °C, time-warped warm-up, then the oil pump wears out. About a minute of wall time.',
     seed: HERO_SEED,
@@ -221,7 +221,8 @@ export const SCENARIOS: Scenario[] = [
       },
       {
         title: 'Warm, driving at 2,500 rpm',
-        caption: 'The engine is warm. Ghost markers sit on the needles: measured equals expected.',
+        caption:
+          'The engine is warm. The Twin markers sit on the needles: measured equals expected.',
         after_s: 0,
         until: 'running',
         commands: [{ type: 'set', settings: { targetRpm: 2500, torque_Nm: 55, warp: 10 } }],
@@ -229,7 +230,7 @@ export const SCENARIOS: Scenario[] = [
       {
         title: 'The oil pump starts to wear',
         caption:
-          'Pump health drops gradually. Watch the pressure needle leave its ghost while the Twin stays healthy.',
+          'Pump health drops gradually. Watch the pressure needle move away from its Twin marker while the Twin stays healthy.',
         after_s: 90,
         commands: [{ type: 'injectFault', fault: 'oilPump', severity: 0.6, onset: 'gradual' }],
       },
@@ -272,7 +273,7 @@ export const SCENARIOS: Scenario[] = [
       {
         title: 'Diagnosis',
         caption:
-          'The thermal residual persists, the alert escalates, and the card names the cause.',
+          'The thermal residual persists, the alert escalates, and the diagnosis card names the cause.',
         after_s: 10,
         until: 'diagnosed',
         commands: [],

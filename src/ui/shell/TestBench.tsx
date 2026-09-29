@@ -207,10 +207,10 @@ export function TestBench() {
             </section>
 
             <section className="panel-tab flex flex-col gap-6 border-b border-line-strong px-8 py-8">
-              <span className="label">Blind challenge</span>
+              <span className="label">Blind test</span>
               <p className="m-0 text-sm leading-relaxed text-fg-2">
-                Deal six sealed fault cards. A judge picks one on the Live Twin page; the monitor
-                has to name it from the sensors alone before the card is turned over.
+                Prepare nine sealed fault cases. Select one on the Live Twin page; the monitor has
+                to identify it from the sensors alone before the answer is revealed.
               </p>
               <Button
                 variant="secondary"
@@ -221,7 +221,7 @@ export function TestBench() {
                   close();
                 }}
               >
-                {blindActive ? 'Deal a new hand' : 'Deal blind challenge'}
+                {blindActive ? 'New blind test' : 'Start blind test'}
               </Button>
             </section>
 
@@ -308,7 +308,7 @@ export function TestBench() {
                   options={[
                     { value: 'gradual', label: 'GRADUAL' },
                     { value: 'instant', label: 'INSTANT' },
-                    { value: 'progressive', label: 'WEARS ON' },
+                    { value: 'progressive', label: 'PROGRESSIVE' },
                   ]}
                 />
               )}
@@ -317,7 +317,7 @@ export function TestBench() {
                   variant="danger"
                   className="flex-1"
                   disabled={!injectable || blindActive}
-                  title={blindActive ? 'End the blind challenge first' : undefined}
+                  title={blindActive ? 'End the blind test first' : undefined}
                   onClick={inject}
                 >
                   Inject fault
@@ -345,7 +345,7 @@ export function TestBench() {
                           : fault.label.toLowerCase()
                       } at health ${(1 - fault.gain * ui.severity).toFixed(2)}.`}{' '}
                 {ui.faultMode === 'progressive' && fault.id !== 'sensor'
-                  ? 'Wears on: the fault keeps growing, faster under load, heat and speed, so the RUL estimate has a trend to follow. This is an accelerated demo progression, not a life model.'
+                  ? 'Progressive: the fault keeps growing, faster under load, heat and speed, so the RUL estimate has a trend to follow. This is an accelerated demo progression, not a life model.'
                   : 'Gradual onset ramps over 120 simulated seconds.'}{' '}
                 All values are demo calibration.
               </p>

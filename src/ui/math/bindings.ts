@@ -10,7 +10,7 @@ import { ANALYTICS } from '../../analytics';
 import type { Snapshot } from '../../worker/protocol';
 
 /**
- * "Show the math" bindings: for each gauge, the chain of registered equations the healthy Twin
+ * Calculation bindings: for each gauge, the chain of registered equations the healthy Twin
  * (or the analytics) evaluates, with the inputs taken from the SAME snapshot the gauge shows.
  * Pure functions of the snapshot, so a test can check that the substituted numbers equal the
  * values on the gauges.
@@ -164,7 +164,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
           T_amb: inp(tel.ambientC, 'live', 2),
         },
         4,
-        'The Twin integrates this every 0.05 s. Its current state T_c is the white ghost on the coolant gauge.',
+        'The Twin integrates this every 0.05 s. Its current state T_c is the white Twin marker on the coolant gauge.',
       );
       return {
         id,
@@ -174,7 +174,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
         steps: [heat, therm, ua, rate],
         checks: [
           {
-            label: 'Twin T_c = gauge ghost',
+            label: 'Twin T_c = gauge Twin marker',
             math: exp.coolantC,
             shown: exp.coolantC,
             unit: '°C',
@@ -239,7 +239,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
           T_amb: inp(tel.ambientC, 'live', 2),
         },
         4,
-        'Q̇_fric = T_fric · ω. The Twin integrates this every 0.05 s; its T_o is the ghost on the oil-temp gauge.',
+        'Q̇_fric = T_fric · ω. The Twin integrates this every 0.05 s; its T_o is the Twin marker on the oil-temp gauge.',
       );
       return {
         id,
@@ -249,7 +249,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
         steps: [fmep, tf, rate],
         checks: [
           {
-            label: 'Twin T_o = gauge ghost',
+            label: 'Twin T_o = gauge Twin marker',
             math: exp.oilC,
             shown: exp.oilC,
             unit: '°C',
@@ -278,7 +278,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
 
     case 'oilPress': {
       // Use exactly the inputs the analytics used (it runs on every second 20 Hz step, so the
-      // newest telemetry can be one step ahead of the gauge's ghost).
+      // newest telemetry can be one step ahead of the gauge's Twin marker).
       const feat = s.analytics?.features;
       const f = feat?.channels.oilPressBar;
       const oilMeasured = feat ? feat.channels.oilC.measured : tel.oilC;
@@ -307,7 +307,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
         steps: [mu, expected, inferred],
         checks: [
           {
-            label: 'P̂_o = gauge ghost',
+            label: 'P̂_o = gauge Twin marker',
             math: expected.result,
             shown: f?.expected ?? expected.result,
             unit: 'bar',
@@ -340,7 +340,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
         steps: [v],
         checks: [
           {
-            label: 'V̂ = gauge ghost',
+            label: 'V̂ = gauge Twin marker',
             math: v.result,
             shown: exp.busV,
             unit: 'V',
@@ -391,7 +391,7 @@ export function buildBinding(id: BindingId, s: MathSnapshot): Binding | null {
         steps: [f2, a2, rms],
         checks: [
           {
-            label: 'healthy RMS = gauge ghost',
+            label: 'healthy RMS = gauge Twin marker',
             math: rms.result,
             shown: exp.vibRmsMs2,
             unit: 'm/s²',

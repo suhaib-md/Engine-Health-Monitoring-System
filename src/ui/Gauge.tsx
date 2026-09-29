@@ -7,9 +7,9 @@ import type { LucideIcon } from './icons';
 type Zone = { from: number; to: number; status: Status };
 
 /**
- * Gauge with a Twin ghost marker: a bar (default) or a car-style dial (`variant="dial"`).
+ * Gauge with a Twin marker: a bar (default) or a car-style dial (`variant="dial"`).
  * value = null means sensor dropout: show "— —", hatched track, grey. Never 0.
- * Amendment A: 20px padding, 36px value, hover lift. Numbers never tween; only the bar/needle/ghost geometry transitions.
+ * Amendment A: 20px padding, 36px value, hover lift. Numbers never tween; only the bar/needle/marker geometry transitions.
  */
 export function Gauge({
   label,
@@ -42,7 +42,7 @@ export function Gauge({
   z?: number;
   /** warn/crit bands: a strip under the bar, or a band on the dial rim */
   zones?: Zone[];
-  /** opens "Show the math" for this gauge */
+  /** opens the calculation drawer for this gauge */
   onMath?: () => void;
   icon?: LucideIcon;
   variant?: 'bar' | 'dial';
@@ -65,7 +65,7 @@ export function Gauge({
     onMath ? (
       <button
         onClick={onMath}
-        title="Show the math"
+        title="View calculation"
         className={`${cls} cursor-pointer decoration-accent/60 decoration-dotted underline-offset-8 transition-colors duration-fast hover:underline`}
       >
         {valueText}
@@ -88,8 +88,8 @@ export function Gauge({
             <button
               onClick={onMath}
               className="cursor-pointer font-serif text-sm italic text-fg-3 transition-colors duration-fast hover:text-accent"
-              aria-label={`Show the math for ${label}`}
-              title="Show the math"
+              aria-label={`View calculation for ${label}`}
+              title="View calculation"
             >
               ƒ(x)
             </button>
@@ -333,7 +333,7 @@ function Dial({
         {caption}
       </text>
 
-      {/* Twin ghost: a white pointer outside the rim at the expected value */}
+      {/* Twin marker: a white pointer outside the rim at the expected value */}
       {expected != null && (
         <g
           transform={`rotate(${ang(expected)} ${CX} ${CY})`}

@@ -1,4 +1,4 @@
-// Pure shared equations + equation registry (Show the math). Called by both Plant and Twin.
+// Pure shared equations + equation registry (calculation view). Called by both Plant and Twin.
 import type { RegisteredEquation } from './registry';
 import { basicsEquations } from './basics';
 import { torqueEquations } from './torque';

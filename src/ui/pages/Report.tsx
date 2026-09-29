@@ -137,7 +137,8 @@ function ReportSheet({
 
       {!snap || !a ? (
         <p className="m-0">
-          No engine data yet. Start the engine (or run the hero scenario), then refresh this report.
+          No engine data yet. Start the engine (or run the oil-pump scenario), then refresh this
+          report.
         </p>
       ) : (
         <>

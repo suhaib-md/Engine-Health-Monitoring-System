@@ -10,7 +10,7 @@ import { EquationRegistry, MathView } from '../math/MathView';
 import { EQUATIONS } from '../../physics';
 
 /**
- * Show the math (Phase 8): the live chain behind any gauge, then every registered equation with
+ * Equations page (Phase 8): the live chain behind any gauge, then every registered equation with
  * its symbols and units. This page is lazy-loaded with KaTeX.
  */
 export function MathPage() {
@@ -24,8 +24,8 @@ export function MathPage() {
       <section className="flex flex-col gap-10">
         <SectionHeader
           index="04"
-          title="Show the math"
-          description="Every number on screen comes from a registered equation. Pick a gauge to see its chain with today's numbers substituted: cyan is measured, white is the Twin's own state, grey is the healthy assumption, orange is what the monitor infers. The chain shown is the Twin's expected-value chain; its result is the white Twin marker on the gauge."
+          title="Equations"
+          description="Every value on screen comes from a registered equation. Select a gauge to see its calculation with current values substituted: cyan is measured, white is the Twin's own state, grey is a healthy-engine assumption, orange is inferred by the monitor. The chain shown is the Twin's expected-value chain; its result is the white Twin marker on the gauge."
         />
         <Reveal>
           <Panel tab className="flex flex-col gap-8 p-8">

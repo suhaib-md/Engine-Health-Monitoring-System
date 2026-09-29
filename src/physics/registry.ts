@@ -1,5 +1,5 @@
 /**
- * Equation registry for "Show the math" (Phase 8) and the Validation page.
+ * Equation registry for the calculation view (Phase 8) and the Validation page.
  * Every physics function the app displays is registered with its LaTeX, named inputs
  * (symbol + unit) and a compute function, so the UI can substitute live numbers.
  */
@@ -42,7 +42,7 @@ export interface Equation<I extends Record<string, number>> {
   output: SymbolInfo;
   compute: (inputs: I) => number;
   /**
-   * The right-hand side with numbers in place of symbols (LaTeX), for "Show the math". It must
+   * The right-hand side with numbers in place of symbols (LaTeX), for the calculation view. It must
    * evaluate to `compute(inputs)`; the UI appends "= result". Without it the UI lists the inputs.
    */
   substitute?: (s: Sub<I>) => string;

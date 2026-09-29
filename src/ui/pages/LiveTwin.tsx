@@ -9,7 +9,7 @@ import { Gauge } from '../Gauge';
 import { HealthRing, SubsystemBars } from '../health';
 import { AlertItem, ExplanationCard } from '../diagnostics';
 import { PartPanel, ViewportChrome } from '../overlay3d';
-import { RunHeroButton, ScenarioBar } from '../ScenarioBar';
+import { RunScenarioButton, ScenarioBar } from '../ScenarioBar';
 import { BlindBar } from '../BlindBar';
 import { CauseEffect } from '../CauseEffect';
 import { engineSound } from '../audio/engineSound';
@@ -30,7 +30,7 @@ const NO_ALERTS: never[] = [];
 
 /**
  * Home view (Amendment A), now live from the worker (Phase 4):
- *   01 hero: viewport + health column   02 signals: gauges   03 diagnosis: card + alerts
+ *   01 overview: viewport + health column   02 signals: gauges   03 diagnosis: card + alerts
  * Each block subscribes to its own slice of the snapshot, so the page shell never re-renders per tick.
  */
 export function LiveTwinPage() {
@@ -44,7 +44,7 @@ export function LiveTwinPage() {
           description="What the engine measures, beside what the healthy Twin expects. The gap between them is the evidence."
           aside={
             <div className="flex flex-wrap gap-3">
-              <RunHeroButton />
+              <RunScenarioButton />
               <SoundButton />
               <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
                 <SlidersHorizontal aria-hidden className="size-4" />
@@ -136,7 +136,7 @@ function SoundButton() {
   );
 }
 
-/* ---------- hero ---------- */
+/* ---------- overview ---------- */
 
 // three.js is ~600 kB: load the 3D scene on demand so the rest of the app paints first
 const EngineScene = lazy(() => import('../../three/EngineScene'));
@@ -315,7 +315,7 @@ function PartOverlay({ part, onClose }: { part: PartId; onClose: () => void }) {
               variant="ghost"
               onClick={() => set({ math: part === 'oilPump' ? 'oilPress' : 'coolant' })}
             >
-              Show the math
+              View calculation
             </Button>
             <Button variant="secondary" onClick={onClose}>
               Close

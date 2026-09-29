@@ -10,7 +10,7 @@ import { BINDINGS, type BindingId } from './bindings';
 const MathView = lazy(() => import('./MathView').then((m) => ({ default: m.MathView })));
 
 /**
- * "Show the math" drawer (right side; the test bench owns the left). Opened by clicking a gauge
+ * Calculation drawer (right side; the test bench owns the left). Opened by clicking a gauge
  * value. Live by default; "Hold" freezes the numbers so they can be read out loud.
  */
 export function MathDrawer() {
@@ -41,7 +41,7 @@ export function MathDrawer() {
           <motion.aside
             key="math-drawer"
             role="dialog"
-            aria-label="Show the math"
+            aria-label="Calculation"
             className="fixed inset-y-0 right-0 z-50 flex w-[720px] max-w-[94vw] flex-col overflow-y-auto border-l border-line-strong bg-raised shadow-overlay"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
@@ -65,7 +65,7 @@ function DrawerBody({ id, onClose }: { id: BindingId; onClose: () => void }) {
     <>
       <header className="flex items-center justify-between gap-4 border-b border-line-strong px-8 py-6">
         <div className="flex flex-col gap-1">
-          <span className="label">Show the math</span>
+          <span className="label">Calculation</span>
           <h2 className="text-h1 font-bold uppercase">{label}</h2>
         </div>
         <Button variant="ghost" onClick={onClose} aria-label="Close the math panel">

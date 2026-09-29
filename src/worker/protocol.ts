@@ -39,7 +39,7 @@ export type Command =
   | { type: 'stopScenario' }
   /** blind mode: deal a shuffled, face-down deck of faults */
   | { type: 'blindDeal' }
-  /** the judge picks a card by position; the worker injects what is on it */
+  /** the user picks a case by position; the worker injects what is on it */
   | { type: 'blindPick'; card: number }
   | { type: 'blindReveal' }
   | { type: 'blindEnd' }
