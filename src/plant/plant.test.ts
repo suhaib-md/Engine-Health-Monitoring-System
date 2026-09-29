@@ -130,7 +130,7 @@ describe('sensor model (draft §15)', () => {
     expect(s.measure(truth({ coolantC: 120 })).coolantC).toBe(first);
   });
 
-  it('bias offsets, drift grows with time, spike hits exactly one sample', () => {
+  it('bias offsets, drift grows with time, a spike lasts its duration', () => {
     const s = new SensorModel(createRng(4));
     s.inject('busV', { kind: 'bias', amount: -1 }, 0);
     expect(s.measure(truth()).busV!).toBeCloseTo(13.2, 0);
@@ -138,9 +138,10 @@ describe('sensor model (draft §15)', () => {
     s.inject('coolantC', { kind: 'drift', ratePerS: 0.1 }, 0);
     expect(s.measure(truth({ t: 100 })).coolantC!).toBeGreaterThan(93 + 9);
 
-    s.inject('coolantC', { kind: 'spike', amount: 25 }, 0);
-    expect(s.measure(truth()).coolantC!).toBeGreaterThan(93 + 24);
-    expect(s.measure(truth()).coolantC!).toBeLessThan(93 + 1);
+    s.inject('coolantC', { kind: 'spike', amount: 25, duration_s: 5 }, 0);
+    expect(s.measure(truth({ t: 0 })).coolantC!).toBeGreaterThan(93 + 24);
+    expect(s.measure(truth({ t: 4.9 })).coolantC!).toBeGreaterThan(93 + 24);
+    expect(s.measure(truth({ t: 5.1 })).coolantC!).toBeLessThan(93 + 1);
   });
 
   it('a stopped engine reads exactly 0 rpm and 0 load', () => {

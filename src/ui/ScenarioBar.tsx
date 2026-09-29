@@ -2,11 +2,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Button } from './primitives';
 import { EASE_OUT } from './motion';
 import { sendSim, useSim } from './sim/simClient';
-import { SCENARIOS } from '../worker/scenarios';
+import { scenarioById } from '../worker/scenarios';
 
 /** One-click run of the hero scenario (fixed seed, plays identically every time). */
 export function RunHeroButton() {
-  const hero = SCENARIOS[0];
+  const hero = scenarioById('hero');
   return (
     <Button
       variant="primary"
@@ -30,6 +30,7 @@ export function ScenarioBar() {
   const title = useSim((s) => s.snapshot?.scenario?.title ?? '');
   const caption = useSim((s) => s.snapshot?.scenario?.caption ?? '');
   const done = useSim((s) => s.snapshot?.scenario?.done ?? false);
+  const paused = useSim((s) => s.snapshot?.paused ?? false);
 
   return (
     <AnimatePresence initial={false}>
@@ -82,6 +83,15 @@ export function ScenarioBar() {
               </AnimatePresence>
             </div>
             <div className="flex shrink-0 gap-3">
+              {!done && (
+                <Button
+                  variant="secondary"
+                  aria-pressed={paused}
+                  onClick={() => sendSim({ type: 'pause', paused: !paused })}
+                >
+                  {paused ? 'Resume' : 'Pause'}
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 onClick={() => id && sendSim({ type: 'runScenario', id })}

@@ -20,6 +20,29 @@ export const CHANNELS: readonly Channel[] = [
   'busV',
 ];
 
+/** The four channels the monitor judges (and the test bench can break). */
+export type MonitoredChannel = 'coolantC' | 'oilC' | 'oilPressBar' | 'busV';
+export type SensorFaultKind = 'spike' | 'stuck' | 'drift' | 'dropout';
+
+/**
+ * Test-bench sensor faults (demo calibration): a +25 °C coolant spike for 8 s is the review's
+ * demo step; drift is slow enough that only the physics cross-check can tell it from a real fault.
+ */
+export function sensorFaultPreset(channel: MonitoredChannel, kind: SensorFaultKind): SensorFault {
+  const spike = { coolantC: 25, oilC: 25, oilPressBar: 1.5, busV: 2 }[channel];
+  const drift = { coolantC: 0.05, oilC: 0.05, oilPressBar: -0.004, busV: -0.004 }[channel];
+  switch (kind) {
+    case 'spike':
+      return { kind, amount: spike, duration_s: 8 };
+    case 'drift':
+      return { kind, ratePerS: drift };
+    case 'stuck':
+      return { kind };
+    case 'dropout':
+      return { kind, probability: 1 };
+  }
+}
+
 export type SensorFault =
   /** constant offset b */
   | { kind: 'bias'; amount: number }
@@ -27,8 +50,8 @@ export type SensorFault =
   | { kind: 'drift'; ratePerS: number }
   /** reading frozen at the value it had when the fault began */
   | { kind: 'stuck' }
-  /** a one-sample jump added once (e.g. +25 °C coolant spike) */
-  | { kind: 'spike'; amount: number }
+  /** a sudden jump that lasts `duration_s`, then the reading returns (e.g. +25 °C coolant spike) */
+  | { kind: 'spike'; amount: number; duration_s: number }
   /** each sample is lost with this probability; 1 = sensor dead */
   | { kind: 'dropout'; probability: number };
 
@@ -48,6 +71,11 @@ export class SensorModel {
   ) {
     for (const c of CHANNELS)
       this.ch.set(c, { fault: null, faultStart_s: 0, stuckValue: null, spikePending: false });
+  }
+
+  /** the active fault on a channel (for the Plant side only; analytics never sees this) */
+  faultOn(channel: Channel) {
+    return this.ch.get(channel)?.fault ?? null;
   }
 
   inject(channel: Channel, fault: SensorFault | null, now_s: number) {
@@ -84,10 +112,7 @@ export class SensorModel {
         y = st.stuckValue;
         break;
       case 'spike':
-        if (st.spikePending) {
-          y += f.amount;
-          st.spikePending = false;
-        }
+        if (t - st.faultStart_s < f.duration_s) y += f.amount;
         break;
       case 'dropout':
         if (u < f.probability) return null;

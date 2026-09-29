@@ -1,6 +1,12 @@
 import { PROFILE, type EngineProfile } from '../engine/profile';
 import type { Rng } from '../lib/rng';
-import { angleWindow, simulateCrank, synthesizeVibration, type CrankInput } from '../physics';
+import {
+  angleWindow,
+  secondaryAccel_ms2,
+  simulateCrank,
+  synthesizeVibration,
+  type CrankInput,
+} from '../physics';
 
 /**
  * The crank-speed and accelerometer sensors. The crank-angle model (physics/crankTorque.ts) runs
@@ -41,12 +47,15 @@ export class CrankSensors {
   }
 
   /** One analysis window for an engine holding `input` steadily (quasi-steady assumption). */
-  window(input: CrankInput, imbalance = 1): CrankWindows {
+  window(input: CrankInput, bearingWear = 0): CrankWindows {
     const run = simulateCrank(input, this.p);
     const rpmPerRadps = 30 / Math.PI;
+    const v = this.p.vibration;
+    const imbalance = 1 + v.bearing1xGain * bearingWear;
+    const knock = v.knockGain * bearingWear * secondaryAccel_ms2(input.rpm, this.p);
     const speedTrue = angleWindow(run.omega, this.p);
     const vibTrue = angleWindow(
-      synthesizeVibration(run, input.resist_Nm, imbalance, this.p),
+      synthesizeVibration(run, input.resist_Nm, imbalance, this.p, knock),
       this.p,
     );
     const n = speedTrue.length;

@@ -6,6 +6,7 @@ import { Reveal } from '../motion';
 import { isEngineRunning, sendSim, useSim } from '../sim/simClient';
 import { formatClock } from '../format';
 import type { Status } from '../tokens';
+import { DataSourcePanel } from '../sources/DataSourcePanel';
 
 /**
  * Phase 2 debug view: raw telemetry beside the Twin's expectation, straight from the worker.
@@ -34,25 +35,34 @@ export function DebugPage() {
     <div className="flex flex-col gap-14">
       <SectionHeader
         index="07"
-        title="Sim debug"
-        description="Raw telemetry from the Plant's sensors beside what the blind Twin expects. On a healthy engine the residual is pure sensor noise (|z| ≈ 1)."
+        title="Debug & data"
+        description="Raw telemetry beside what the blind Twin expects, and the data source feeding them. On a healthy engine the residual is pure sensor noise (|z| ≈ 1)."
         aside={
-          <>
-            <Button variant="primary" onClick={() => sendSim({ type: running ? 'stop' : 'start' })}>
-              {running ? 'Stop engine' : 'Start engine'}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => sendSim({ type: 'pause', paused: !snap.paused })}
-            >
-              {snap.paused ? 'Resume' : 'Pause'}
-            </Button>
-            <Button variant="ghost" onClick={() => sendSim({ type: 'reset' })}>
-              Reset
-            </Button>
-          </>
+          snap.source.kind !== 'sim' ? undefined : (
+            <>
+              <Button
+                variant="primary"
+                onClick={() => sendSim({ type: running ? 'stop' : 'start' })}
+              >
+                {running ? 'Stop engine' : 'Start engine'}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => sendSim({ type: 'pause', paused: !snap.paused })}
+              >
+                {snap.paused ? 'Resume' : 'Pause'}
+              </Button>
+              <Button variant="ghost" onClick={() => sendSim({ type: 'reset' })}>
+                Reset
+              </Button>
+            </>
+          )
         }
       />
+
+      <Reveal>
+        <DataSourcePanel />
+      </Reveal>
 
       <Reveal>
         <div className="grid grid-cols-2 gap-6 md:grid-cols-4">

@@ -15,8 +15,9 @@ const post = () => {
 };
 
 self.onmessage = (e: MessageEvent<Command>) => {
-  loop.handle(e.data);
-  post(); // reflect commands immediately
+  const reply = loop.handle(e.data);
+  if (reply) self.postMessage(reply);
+  if (e.data.type !== 'liveTelemetry') post(); // reflect commands immediately
 };
 
 setInterval(() => {

@@ -179,6 +179,15 @@ export const PROFILE = {
     imbalance1xFraction: 0.05,
     /** phase of the 1× line against cylinder-1 firing TDC, deg */
     imbalance1xPhase_deg: 30,
+    /** bearing wear W: the 1× line grows by (1 + gain·W) (looser crank, Q-13) */
+    bearing1xGain: 8,
+    /**
+     * bearing knock: a decaying ring once per revolution, peak = gain · W · (healthy 2× line),
+     * ringing at `knockOrder` × crank speed and dying out over `knockDecay_deg` (Q-13)
+     */
+    knockGain: 1.5,
+    knockOrder: 24,
+    knockDecay_deg: 12,
     /** block rocking from the net crank torque: a = −gain · (T_gas − T_load), m/s² per N·m (Q-13) */
     rockGain_ms2perNm: 0.008,
   },
@@ -192,6 +201,33 @@ export const PROFILE = {
     gradualRamp_s: 120,
     /** lubrication degradation from a weak pump: D_lube = gain · (1 − H_pump) (draft §10.3, §28) */
     lubeFromPumpGain: 1,
+    /** H_alt = 1 − k·S (draft §18.5). S = 1 leaves only the battery: 12.4 V */
+    alternatorSeverityGain: 1,
+    /**
+     * Stress-dependent progression for the 'progressive' onset (draft §19.3, Q-10), PROVISIONAL:
+     *   dS/dt = k0 (1 + kL·L)(1 + kT·R_T)(1 + kN·N/N_max),  R_T = coolant risk 105 → 120 °C.
+     * At 2,500 rpm / 55 N·m S grows ~0.33 in 30 simulated minutes; full load is ~1.7× faster.
+     */
+    progression: {
+      k0_perS: 8e-5,
+      kL: 2,
+      kT: 1,
+      kN: 0.5,
+      coolantRisk_C: { warn: 105, crit: 120 },
+    },
+    /**
+     * Bearing wear law (draft §18.3, Q-09), PROVISIONAL: dW/dt = kw · L^a (1 + kT·R_T)(1 + kP·R_lowP),
+     * R_T = oil-temperature risk 110 → 140 °C, R_lowP = pressure-ratio risk 0.85 → 0.5 of healthy.
+     * Wear 0 → 0.6 in ~20 simulated minutes at 60 % load, ~10 with a weak pump.
+     */
+    bearingWear: {
+      kw_perS: 8.3e-4,
+      loadExponent: 1,
+      kT: 1,
+      kP: 1,
+      oilRisk_C: { warn: 110, crit: 140 },
+      pressRisk: { warn: 0.85, crit: 0.5 },
+    },
   },
 
   sim: {

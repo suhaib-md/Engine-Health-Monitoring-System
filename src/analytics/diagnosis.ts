@@ -2,6 +2,8 @@ import { ANALYTICS, WEIGHTS } from './config';
 import { riskHigh, riskLow } from './risk';
 import type { Features } from './residuals';
 import type { SpectralFeatures } from './spectral';
+import { CHANNEL_LABEL, type SanityState } from './sanity';
+import { RESIDUAL_CHANNELS } from './residuals';
 import type { FaultEvidence, Symptom } from './types';
 
 /**
@@ -33,11 +35,9 @@ function cooling(f: Features): FaultEvidence {
     {
       id: 'tempRate',
       weight: w.tempRate,
-      risk: riskHigh(
-        c.ratePerMin,
-        ANALYTICS.coolRate_KperMin.warn,
-        ANALYTICS.coolRate_KperMin.crit,
-      ),
+      risk: !c.valid
+        ? 0
+        : riskHigh(c.ratePerMin, ANALYTICS.coolRate_KperMin.warn, ANALYTICS.coolRate_KperMin.crit),
       text: `Coolant residual changing ${sgn(c.ratePerMin, f1)} °C/min`,
     },
   ];
@@ -61,7 +61,17 @@ function cooling(f: Features): FaultEvidence {
   };
 }
 
-function lubrication(f: Features): FaultEvidence {
+/** Bearing-wear vibration evidence: a 1× rise (looser crank) or impacts (kurtosis). */
+export function bearingVibrationRisk(s: SpectralFeatures | null) {
+  if (!s) return 0;
+  const b = ANALYTICS.bearing;
+  return Math.max(
+    riskHigh(s.ratios.first, b.firstRatio.warn, b.firstRatio.crit),
+    riskHigh(s.vib.kurtosis, b.kurtosis.warn, b.kurtosis.crit),
+  );
+}
+
+function lubrication(f: Features, s: SpectralFeatures | null): FaultEvidence {
   const p = f.channels.oilPressBar;
   const w = WEIGHTS.lubrication;
   const deficitPct = (1 - f.pressRatio) * 100;
@@ -89,28 +99,79 @@ function lubrication(f: Features): FaultEvidence {
     {
       id: 'oilTemp',
       weight: w.oilTemp,
-      risk: zRisk(f.oilExcessZ),
+      risk: f.channels.oilC.valid && f.channels.coolantC.valid ? zRisk(f.oilExcessZ) : 0,
       text: `Oil running ${sgn(f.oilExcessZ * f.channels.oilC.sigma, f1)} °C beyond what the coolant explains`,
     },
     {
       id: 'pressureDecay',
       weight: w.pressureDecay,
-      risk: riskHigh(
-        -p.ratePerMin,
-        ANALYTICS.pressDecay_barPerMin.warn,
-        ANALYTICS.pressDecay_barPerMin.crit,
-      ),
+      risk: !p.valid
+        ? 0
+        : riskHigh(
+            -p.ratePerMin,
+            ANALYTICS.pressDecay_barPerMin.warn,
+            ANALYTICS.pressDecay_barPerMin.crit,
+          ),
       text: `Oil-pressure residual changing ${sgn(p.ratePerMin, f2)} bar/min`,
     },
   ];
+  // Bearing wear (draft §18.3) lowers the pressure too; what sets it apart is vibration. When the
+  // pressure is low AND the crank shows a 1× rise or impacts, the fault is named bearing wear and
+  // the draft's vibration symptom joins the score (Q-50). Otherwise it stays out, as calibrated.
+  const vib = bearingVibrationRisk(s);
+  const pressureLow = symptoms[0]!.risk > 0 || symptoms[1]!.risk > 0;
+  const bearing = pressureLow && vib >= ANALYTICS.bearing.nameAbove && !!s;
+  if (bearing)
+    symptoms.splice(3, 0, {
+      id: 'vibration',
+      weight: w.vibration,
+      risk: vib,
+      text: `1× vibration ${f1(s.ratios.first)}× the healthy imbalance line, kurtosis ${f2(s.vib.kurtosis)} (impacts)`,
+    });
   return {
     id: 'lubrication',
-    name: 'Lubrication-system degradation',
+    name: bearing ? 'Bearing wear / increased clearance' : 'Lubrication-system degradation',
     subsystem: 'lubrication',
     score: score(symptoms),
     symptoms,
-    action:
-      'Inspect oil level, oil-pump operation, filter restriction and bearing-clearance condition.',
+    action: bearing
+      ? 'Oil pressure is low while 1× vibration and impacts rise: inspect crank and rod bearing clearances, and reduce load until inspected.'
+      : 'Inspect oil level, oil-pump operation, filter restriction and bearing-clearance condition.',
+  };
+}
+
+/**
+ * Sensor fault (review "Proving a sensor fault with physics"; draft §15, §39). The score is the
+ * worst channel's sanity evidence, capped so a sensor fault is WARNING-class: the engine is fine.
+ */
+function sensorFault(sanity: SanityState | null): FaultEvidence {
+  const worst = sanity?.worst ?? null;
+  const symptoms: Symptom[] = sanity
+    ? RESIDUAL_CHANNELS.filter((c) => sanity.channels[c].risk > 0).map((c) => ({
+        id: `sensor.${c}`,
+        weight: 1,
+        risk: sanity.channels[c].risk,
+        text: sanity.channels[c].reason,
+      }))
+    : [];
+  const top = symptoms.reduce((a, x) => Math.max(a, x.risk), 0);
+  if (!symptoms.length)
+    symptoms.push({
+      id: 'sensorsOk',
+      weight: 1,
+      risk: 0,
+      text: 'Every sensor passes the rate-limit, stuck and dropout checks',
+    });
+  const label = worst ? CHANNEL_LABEL[worst] : 'Sensor';
+  return {
+    id: 'sensor',
+    name: worst ? `${label} sensor fault` : 'Sensor fault',
+    subsystem: 'sensors',
+    score: Math.min(ANALYTICS.sensorScoreCap, top),
+    symptoms,
+    action: worst
+      ? `Check the ${label.toLowerCase()} sensor and its wiring. Its readings are left out of the diagnosis until they are plausible again; the engine is judged from the other sensors.`
+      : 'Check the sensor and its wiring.',
   };
 }
 
@@ -194,6 +255,12 @@ function combustion(s: SpectralFeatures | null): FaultEvidence {
 }
 
 /** All fault hypotheses, highest evidence first. */
-export function diagnose(f: Features, s: SpectralFeatures | null = null): FaultEvidence[] {
-  return [cooling(f), lubrication(f), charging(f), combustion(s)].sort((a, b) => b.score - a.score);
+export function diagnose(
+  f: Features,
+  s: SpectralFeatures | null = null,
+  sanity: SanityState | null = null,
+): FaultEvidence[] {
+  return [cooling(f), lubrication(f, s), charging(f), combustion(s), sensorFault(sanity)].sort(
+    (a, b) => b.score - a.score,
+  );
 }

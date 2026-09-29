@@ -1,7 +1,9 @@
 import { ANALYTICS, SUBSYSTEM_WEIGHTS } from './config';
 import { riskHigh, riskLow } from './risk';
-import type { Features } from './residuals';
+import { RESIDUAL_CHANNELS, type Features } from './residuals';
 import type { SpectralFeatures } from './spectral';
+import type { SanityState } from './sanity';
+import { bearingVibrationRisk } from './diagnosis';
 import type { FaultEvidence, SubsystemHealth, SubsystemId } from './types';
 
 /**
@@ -37,9 +39,10 @@ export function subsystemRisks(
   evidence: FaultEvidence[],
   f: Features,
   s: SpectralFeatures | null = null,
+  sanity: SanityState | null = null,
 ): SubsystemRisks {
   const byId = (id: FaultEvidence['id']) => evidence.find((e) => e.id === id)?.score ?? 0;
-  const coolant = f.channels.coolantC.measured;
+  const coolant = f.channels.coolantC.valid ? f.channels.coolantC.measured : null;
   const absThermal =
     coolant == null
       ? 0
@@ -50,10 +53,15 @@ export function subsystemRisks(
     electrical: byId('charging'),
     // monitored once the crank-angle windows arrive (engine running)
     vibration: s
-      ? riskHigh(s.ratios.rms, ANALYTICS.misfire.vibRatio.warn, ANALYTICS.misfire.vibRatio.crit)
+      ? Math.max(
+          riskHigh(s.ratios.rms, ANALYTICS.misfire.vibRatio.warn, ANALYTICS.misfire.vibRatio.crit),
+          bearingVibrationRisk(s),
+        )
       : null,
     combustion: s ? byId('combustion') : null,
-    sensors: f.dropped.length / 4,
+    sensors: sanity
+      ? RESIDUAL_CHANNELS.reduce((a, c) => Math.max(a, sanity.channels[c].risk), 0)
+      : f.dropped.length / 4,
   };
 }
 
@@ -74,7 +82,7 @@ export function criticalOverride(f: Features): { active: boolean; reason: string
   const pressRisk = riskLow(f.pressRatio, ANALYTICS.pressRatio.warn, ANALYTICS.pressRatio.crit);
   if (f.channels.oilPressBar.valid && pressRisk > 0.95)
     return { active: true, reason: 'Oil pressure collapsed against expectation' };
-  const c = f.channels.coolantC.measured;
+  const c = f.channels.coolantC.valid ? f.channels.coolantC.measured : null;
   if (c != null && riskHigh(c, ANALYTICS.coolantAbs_C.warn, ANALYTICS.coolantAbs_C.crit) > 0.95)
     return { active: true, reason: `Coolant ${c.toFixed(0)} °C beyond the critical limit` };
   return { active: false, reason: '' };

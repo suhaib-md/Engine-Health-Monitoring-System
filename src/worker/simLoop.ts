@@ -1,13 +1,24 @@
 import { PROFILE, type EngineProfile } from '../engine/profile';
 import { HERO_SEED, createRng } from '../lib/rng';
 import { BLIND_DECK, BLIND_SETTINGS } from './blind';
+import { sensorFaultPreset } from '../plant';
 import type { Telemetry } from '../telemetry';
-import { SimSource } from '../sources';
+import {
+  CsvError,
+  LiveSource,
+  ReplaySource,
+  SimSource,
+  csvHeader,
+  parseTelemetryCsv,
+  telemetryToCsvRow,
+} from '../sources';
 import { Twin, type TwinExpected } from '../twin';
 import { Analytics, ANALYTICS, type AnalyticsState } from '../analytics';
 import type {
   BlindStatus,
   Command,
+  SourceStatus,
+  WorkerMessage,
   FaultEvent,
   ScenarioStatus,
   SimSettings,
@@ -16,6 +27,10 @@ import type {
   Warp,
 } from './protocol';
 import { MAX_WAIT_S, scenarioById, type Scenario, type Until } from './scenarios';
+import type { Lifecycle } from '../lifecycle';
+
+/** 30 minutes at the 20 Hz loop rate */
+const RECORD_MAX_ROWS = 36_000;
 
 /** Progress of the running scripted scenario (all times are simulated seconds). */
 interface ScenarioRun {
@@ -65,6 +80,15 @@ export class SimLoop {
   /** blind challenge: the shuffled deck stays here, in the worker (never in a snapshot) */
   private blind: { order: number[]; status: BlindStatus } | null = null;
   private deals = 0;
+  /** Phase 13: a replay or live source replaces the simulator's Plant (same Twin, same analytics) */
+  private external: ReplaySource | LiveSource | null = null;
+  private liveCount = 0;
+  /**
+   * The last 30 min of telemetry at the loop rate, for "Download recording (CSV)": a ring buffer
+   * (dropping the oldest row with Array.shift() would copy 36,000 rows on every step).
+   */
+  private recording: string[] = [];
+  private recHead = 0;
 
   constructor(
     seed: number = HERO_SEED,
@@ -85,6 +109,9 @@ export class SimLoop {
     this.accum_s = 0;
     this.run = null;
     this.blind = null;
+    this.external = null;
+    this.recording = [];
+    this.recHead = 0;
     this.windows = null;
     this.windowForAnalytics = false;
     this.postedSeq = 0;
@@ -104,7 +131,9 @@ export class SimLoop {
   private conditionMet(u: Until) {
     if (u === 'running') return this.source.plant.state.lifecycle === 'RUNNING';
     const a = this.analyticsState;
-    return !!a?.explanation && (a.overallLevel === 'WARNING' || a.overallLevel === 'CRITICAL');
+    const escalated = a?.overallLevel === 'WARNING' || a?.overallLevel === 'CRITICAL';
+    if (u === 'diagnosed') return !!a?.explanation && escalated;
+    return escalated && a?.explanation?.fault === u.fault;
   }
 
   /** Fire every script step that is due at the current simulated time. */
@@ -154,7 +183,7 @@ export class SimLoop {
     return { targetRpm, torque_Nm, ambient_C, fanMode };
   }
 
-  handle(cmd: Command) {
+  handle(cmd: Command): WorkerMessage | void {
     switch (cmd.type) {
       case 'start':
         this.source.plant.start();
@@ -187,6 +216,40 @@ export class SimLoop {
       case 'blindReveal':
         this.blindReveal();
         break;
+      case 'exportRecording':
+        return {
+          type: 'recording',
+          csv:
+            [
+              csvHeader(),
+              ...this.recording.slice(this.recHead),
+              ...this.recording.slice(0, this.recHead),
+            ].join('\n') + '\n',
+          rows: this.recording.length,
+        };
+      case 'loadReplay':
+        try {
+          const rows = parseTelemetryCsv(cmd.csv);
+          this.useExternal(new ReplaySource(rows, cmd.name));
+        } catch (e) {
+          return {
+            type: 'sourceError',
+            message: e instanceof CsvError ? e.message : `Could not read ${cmd.name}.`,
+          };
+        }
+        break;
+      case 'useLive':
+        this.useExternal(new LiveSource(cmd.name, 0));
+        break;
+      case 'liveTelemetry':
+        if (this.external instanceof LiveSource) {
+          this.external.push(cmd.patch);
+          this.liveCount++;
+        }
+        break;
+      case 'useSimulator':
+        this.reset();
+        break;
       case 'blindEnd':
         if (this.blind) this.handle({ type: 'clearFaults' });
         this.blind = null;
@@ -199,12 +262,27 @@ export class SimLoop {
             ? 'PUMP FAULT'
             : cmd.fault === 'cooling'
               ? 'COOLING FAULT'
-              : `MISFIRE C${cmd.fault.slice(-1)}`;
+              : cmd.fault === 'bearing'
+                ? 'BEARING WEAR'
+                : cmd.fault === 'alternator'
+                  ? 'ALTERNATOR FAULT'
+                  : `MISFIRE C${cmd.fault.slice(-1)}`;
+        this.faultEvents = [...this.faultEvents, { t: this.telemetry.t, label: name }].slice(-20);
+        break;
+      }
+      case 'injectSensorFault': {
+        this.source.sensors.inject(
+          cmd.channel,
+          sensorFaultPreset(cmd.channel, cmd.kind),
+          this.telemetry.t,
+        );
+        const name = this.blind ? 'HIDDEN FAULT' : `SENSOR ${cmd.kind.toUpperCase()}`;
         this.faultEvents = [...this.faultEvents, { t: this.telemetry.t, label: name }].slice(-20);
         break;
       }
       case 'clearFaults':
         this.source.plant.clearFaults();
+        this.source.sensors.clear();
         this.faultEvents = [...this.faultEvents, { t: this.telemetry.t, label: 'REPAIRED' }].slice(
           -20,
         );
@@ -212,9 +290,34 @@ export class SimLoop {
     }
   }
 
+  /** Switch the Twin and analytics over to a replay or live source, starting fresh. */
+  private useExternal(src: ReplaySource | LiveSource) {
+    this.reset();
+    this.external = src;
+    this.liveCount = 0;
+    this.twin = new Twin(this.p);
+    this.analytics = new Analytics();
+    this.analyticsState = null;
+    this.stepOnce(0);
+  }
+
   private stepOnce(dt: number) {
-    this.telemetry =
-      dt > 0 ? this.source.step(dt) : this.source.sensors.measure(this.source.plant.truth());
+    this.telemetry = this.external
+      ? dt > 0
+        ? this.external.step(dt)
+        : this.external.current()
+      : dt > 0
+        ? this.source.step(dt)
+        : this.source.sensors.measure(this.source.plant.truth());
+    // record from t = 0, so a replay's analytics tick on the same samples as the original run
+    if (!this.external) {
+      const row = telemetryToCsvRow(this.telemetry);
+      if (this.recording.length < RECORD_MAX_ROWS) this.recording.push(row);
+      else {
+        this.recording[this.recHead] = row;
+        this.recHead = (this.recHead + 1) % RECORD_MAX_ROWS;
+      }
+    }
     this.expected = this.twin.update(this.telemetry);
     const { crankSpeedWindow: speed, vibWindow: vib } = this.telemetry;
     if (speed && vib) {
@@ -239,6 +342,7 @@ export class SimLoop {
   private blindDeal() {
     this.run = null;
     this.source.plant.clearFaults();
+    this.source.sensors.clear();
     const rng = createRng((this.seed ^ 0x9e3779b9) + 7919 * ++this.deals);
     const order = BLIND_DECK.map((_, i) => i);
     for (let i = order.length - 1; i > 0; i--) {
@@ -264,7 +368,9 @@ export class SimLoop {
     const b = this.blind;
     if (!b || b.status.picked != null || card < 0 || card >= b.order.length) return;
     const c = BLIND_DECK[b.order[card]!]!;
-    this.handle({ type: 'injectFault', fault: c.fault, severity: c.severity, onset: c.onset });
+    if (c.kind === 'engine')
+      this.handle({ type: 'injectFault', fault: c.fault, severity: c.severity, onset: c.onset });
+    else this.handle({ type: 'injectSensorFault', channel: c.channel, kind: c.sensorFault });
     b.status = { ...b.status, picked: card, pickedAt: this.telemetry.t };
   }
 
@@ -294,6 +400,11 @@ export class SimLoop {
     this.accum_s += sim_s;
     let n = 0;
     while (this.accum_s >= dt - 1e-9) {
+      // a finished replay stops the clock: holding its last row would look like a frozen sensor
+      if (this.external instanceof ReplaySource && this.external.done) {
+        this.accum_s = 0;
+        break;
+      }
       this.stepOnce(dt);
       this.accum_s -= dt;
       n++;
@@ -314,6 +425,22 @@ export class SimLoop {
     return steps;
   }
 
+  private sourceStatus(): SourceStatus {
+    const e = this.external;
+    if (e instanceof ReplaySource)
+      return { kind: 'replay', name: e.name, progress: e.progress, done: e.done };
+    if (e instanceof LiveSource) return { kind: 'live', name: e.name, count: this.liveCount };
+    return { kind: 'sim', name: 'Simulator' };
+  }
+
+  /** Lifecycle as the monitor can infer it from telemetry (external sources have no Plant). */
+  private inferredLifecycle(): Lifecycle {
+    const tel = this.telemetry;
+    if (tel.rpm <= 0) return 'OFF';
+    if (tel.rpm < 0.8 * this.p.speed.idle_rpm) return 'STARTING';
+    return (tel.coolantC ?? 0) < this.p.cooling.thermostatOpen_C ? 'WARMUP' : 'RUNNING';
+  }
+
   snapshot(): Snapshot {
     const plant = this.source.plant;
     const { crankSpeedWindow, vibWindow, ...telemetry } = this.telemetry;
@@ -325,8 +452,8 @@ export class SimLoop {
       seed: this.seed,
       paused: this.paused,
       warp: this.settings.warp as Warp,
-      lifecycle: plant.state.lifecycle,
-      transient: plant.transient,
+      lifecycle: this.external ? this.inferredLifecycle() : plant.state.lifecycle,
+      transient: this.external ? false : plant.transient,
       telemetry,
       expected: this.expected,
       simRate: this.simRate,
@@ -335,6 +462,7 @@ export class SimLoop {
       windows: fresh,
       scenario: this.scenarioStatus(),
       blind: this.blind ? this.blind.status : null,
+      source: this.sourceStatus(),
       settings: this.settings,
       settingsRev: this.settingsRev,
     };

@@ -108,7 +108,7 @@ function spectrumOf(re: Float64Array, im: Float64Array, revs: number, maxOrder: 
 
 const prepared = (w: ArrayLike<number>) =>
   w.length === FFT_POINTS
-    ? Float64Array.from(w as ArrayLike<number>)
+    ? new Float64Array(w as ArrayLike<number>) // typed-array copy, not the slow iterator path
     : resamplePeriodic(w, FFT_POINTS);
 
 /** Order spectrum of a crank-angle window up to `maxOrder`. */

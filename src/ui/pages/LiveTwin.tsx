@@ -11,6 +11,8 @@ import { AlertItem, ExplanationCard } from '../diagnostics';
 import { PartPanel, ViewportChrome } from '../overlay3d';
 import { RunHeroButton, ScenarioBar } from '../ScenarioBar';
 import { BlindBar } from '../BlindBar';
+import { CauseEffect } from '../CauseEffect';
+import { engineSound } from '../audio/engineSound';
 import { Reveal, Stagger, StaggerItem, drawerSpring, EASE_OUT } from '../motion';
 import { residualStatus } from '../format';
 import { scoreStatus } from '../tokens';
@@ -40,6 +42,7 @@ export function LiveTwinPage() {
           aside={
             <div className="flex flex-wrap gap-3">
               <RunHeroButton />
+              <SoundButton />
               <Button variant="secondary" onClick={() => set({ benchOpen: true })}>
                 Open test bench
               </Button>
@@ -90,7 +93,41 @@ export function LiveTwinPage() {
           </Reveal>
         </div>
       </section>
+
+      <section className="flex flex-col gap-10">
+        <SectionHeader
+          size="section"
+          index="04"
+          title="Cause and effect"
+          description="Each fault the monitor can name, the physical effect it has, and the sensor that sees it (draft §6). Nodes light up from the live symptom risks, so the path from a reading back to its cause is visible while the evidence builds."
+        />
+        <Reveal>
+          <Panel className="p-6 md:p-8">
+            <CauseEffect />
+          </Panel>
+        </Reveal>
+      </section>
     </div>
+  );
+}
+
+/** Engine sound: the measured firing pulses at real speed (a misfire stumbles audibly). */
+function SoundButton() {
+  const on = useUi((s) => s.sound);
+  const set = useUi((s) => s.set);
+  return (
+    <Button
+      variant="secondary"
+      aria-pressed={on}
+      title="Exhaust pulses built from the measured crank speed, at real engine speed"
+      onClick={() => {
+        if (on) engineSound.stop();
+        else engineSound.start();
+        set({ sound: !on });
+      }}
+    >
+      {on ? 'Sound on' : 'Sound off'}
+    </Button>
   );
 }
 
@@ -315,11 +352,31 @@ function HealthPanel() {
             Start engine
           </Button>
         ) : (
-          <span className="num text-xs text-fg-2">RUL · arrives with trend analysis (Phase 9)</span>
+          <RulLine />
         )}
       </div>
     </Panel>
   );
+}
+
+/**
+ * RUL of the most urgent degrading subsystem (only when its trend is significant), else what the
+ * statistics layer is doing. Simulated time: it scales with the time-warp.
+ */
+function RulLine() {
+  const text = useSim((s) => {
+    const a = s.snapshot?.analytics;
+    if (!a) return '';
+    const sig = a.rul
+      .filter((r) => r.significant && r.rul_s != null)
+      .sort((x, y) => x.rul_s! - y.rul_s!)[0];
+    if (sig) return `RUL · ${sig.name.toLowerCase()} ${sig.text}`;
+    if (a.stats.phase === 'learning')
+      return `learning the healthy baseline · ${(a.stats.progress * 100).toFixed(0)} %`;
+    if (a.stats.phase === 'waiting') return 'baseline starts once the engine settles';
+    return 'RUL · no significant degradation trend';
+  });
+  return <span className="num max-w-[320px] text-xs leading-relaxed text-fg-2">{text}</span>;
 }
 
 function SubsystemsPanel() {
@@ -342,10 +399,17 @@ function Signals() {
   const targetRpm = useUi((s) => s.targetRpm);
   const running = useSim((s) => isEngineRunning(s.snapshot));
   const spectral = useSim((s) => s.snapshot?.analytics?.spectral);
+  const sanity = useSim((s) => s.snapshot?.analytics?.sanity);
   const set = useUi((s) => s.set);
   if (!tel || !exp) return <p className="num text-fg-3">Waiting for the simulation worker…</p>;
 
-  const q = (v: number | null) => (v == null ? ('unavailable' as const) : ('valid' as const));
+  // draft §39 sensor quality: missing = unavailable, dropping = degraded, failed a sanity check = failed
+  const q = (c: ResidualChannel) => {
+    const st = sanity?.channels[c].state;
+    if (tel[c] == null) return 'unavailable' as const;
+    if (!st || st === 'ok') return 'valid' as const;
+    return st === 'dropout' ? ('degraded' as const) : ('failed' as const);
+  };
   const ch = (c: ResidualChannel) => f?.channels[c];
   const rpmStatus = tel.rpm > 6000 ? 'crit' : 'ok';
   // vibration is judged against the healthy Twin at this speed and load (ratio, not an absolute limit)
@@ -386,7 +450,7 @@ function Signals() {
           max={130}
           decimals={1}
           status={residualStatus(ch('coolantC')?.z)}
-          quality={q(tel.coolantC)}
+          quality={q('coolantC')}
           z={ch('coolantC')?.z}
           zones={[
             { from: 105, to: 120, status: 'warn' },
@@ -404,7 +468,7 @@ function Signals() {
           min={20}
           max={160}
           status={residualStatus(ch('oilC')?.z)}
-          quality={q(tel.oilC)}
+          quality={q('oilC')}
           z={ch('oilC')?.z}
           zones={[{ from: 140, to: 160, status: 'crit' }]}
         />
@@ -421,7 +485,7 @@ function Signals() {
           max={5}
           decimals={2}
           status={residualStatus(ch('oilPressBar')?.z)}
-          quality={q(tel.oilPressBar)}
+          quality={q('oilPressBar')}
           z={ch('oilPressBar')?.z}
           zones={[{ from: 0, to: 0.5, status: 'crit' }]}
         />
@@ -437,7 +501,7 @@ function Signals() {
           max={15}
           decimals={1}
           status={residualStatus(ch('busV')?.z)}
-          quality={q(tel.busV)}
+          quality={q('busV')}
           z={ch('busV')?.z}
           zones={[{ from: 10, to: 11.8, status: 'warn' }]}
         />

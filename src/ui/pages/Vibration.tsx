@@ -8,6 +8,7 @@ import { useSim } from '../sim/simClient';
 import { MisfirePolar, OrderSpectrumChart, WaveChart } from '../charts/VibrationCharts';
 import { ANALYTICS, riskHigh, riskStatus } from '../../analytics';
 import type { Status } from '../tokens';
+import { AccelerometerPanel } from '../sources/AccelerometerPanel';
 
 /**
  * Vibration & crank (Phase 7). Everything here is computed from the crank-angle windows the
@@ -23,6 +24,7 @@ export function VibrationPage() {
         description="Order spectrum in the crank-angle domain, so peaks stay sharp while RPM changes. A half-order (0.5×) component means one cylinder is firing weak; its phase names which one."
       />
       <Body />
+      <AccelerometerPanel />
     </div>
   );
 }

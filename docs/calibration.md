@@ -193,3 +193,45 @@ Code: [src/analytics/config.ts](../src/analytics/config.ts). All PROVISIONAL dem
 | Display precision: temperatures in the balances 3 dp, ambient 2 dp, inferred health 3 dp, UA 2 dp | DERIVED | Chosen so a judge redoing the displayed arithmetic gets the displayed result (tested for every step in six engine states) |
 | K = 120·c½/(J·ω), c½ = 4√2/(3·2π) | DERIVED | Closed form behind A₀.₅ = K·T·m/(4 − m); K·T = 63.2 rpm at 3,000 rpm and 110 N·m |
 | Blind deck severities and operating point | PROVISIONAL | Q-48 |
+
+## Phase 9: advanced analytics
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Progression ('wears on'): dS/dt = 8e-5 (1 + 2L)(1 + R_T)(1 + 0.5 N/N_max) /s | PROVISIONAL | Q-10. S grows ~0.33 in 30 simulated min at 2,500 rpm / 55 N·m; full load ~1.7× faster |
+| Bearing wear: dW/dt = 8.3e-4 · L (1 + R_T)(1 + R_lowP) /s; pressure ÷ (1 + 1.5 W); 1× line × (1 + 8W); knock 1.5·W·a₂ ringing at order 24, decay 12° | PROVISIONAL | Q-09, Q-13 |
+| Alternator: H_alt = 1 − S | PROVISIONAL | S = 1 leaves the battery: 12.4 V |
+| Sensor faults: spike +25 °C (oil +25 °C, pressure +1.5 bar, voltage +2 V) for 8 s; drift +0.05 °C/s (pressure/voltage −0.004 /s); stuck; dead | PROVISIONAL | Review demo step 5 |
+| Max coolant heating rate 0.81 K/s; max oil heating rate from cold friction at redline | DERIVED | Energy balance (registered as cooling.maxRate) |
+| Rate check: jump > limit·Δt + 6·√2·σ; stuck = 30 identical readings (3 s); dropout 20 % → 50 % of 5 s | PROVISIONAL | Noise allowance keeps healthy false flags at zero |
+| Coolant drift cross-check: filtered coolant residual > 4σ while the oil trails the predicted jacket response by > 5σ for 30 s | DERIVED | C_o dΔ/dt = K_co (r_c − Δ) − UA_o Δ from the oil balance |
+| D²: k = 5, 60 s baseline (warm, steady), Σ_ii ≥ 0.25, limit 15.09, alarm after 3 s, clear after 20 s | FIXED + PROVISIONAL | Review; Q-17, Q-52 |
+| CUSUM: κ 0.5, h 5 on EMA-filtered z, once per simulated second, S capped at 15 | FIXED + PROVISIONAL | Review; Q-52 |
+| RUL: 120 s window at 1 Hz, H_fail 15, significance |b| > 2 s_b and ≥ 0.5 points/min | FIXED + PROVISIONAL | Review; Q-19 |
+| Twin: idle load deadband 3σ; start-up anchoring τ 3 s for 10 s | DERIVED | Q-51 |
+
+### Phase 9 result
+- Healthy, 5 operating points × 3 simulated min: D² above 15.09 < 3 % of samples, no held alarm, always NORMAL.
+- Oil pump at 85 % health (S 0.2, gradual): CUSUM alarm on oil pressure before any rule alert; card "Early warning: oil pressure drifting below expectation". In the hero run CUSUM flags the pump 12 s after the fault starts.
+- Coolant spike +25 °C: "Coolant sensor fault … jumped +24.3 °C in 0.10 s (243 K/s); the energy balance allows at most 0.81 K/s"; cooling evidence stays < 0.3.
+- Stuck coolant, dead oil-pressure sensor and drifting coolant: each named as that sensor's fault; a real cooling fault is never flagged as a sensor fault.
+- RUL: "trend not significant" on a healthy engine; a band under 'wears on' pump wear; heavier load gives a shorter RUL.
+
+## Phase 10: validation, report, sound, hot city
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Validation rows: χ²₅ 99 % from the incomplete gamma function (15.086), CUSUM samples to flag 1σ (11, review "about 10"), spike ÷ max rate (153×), draft §22.1 health 69.4, draft §25.2 RUL 47.5 h | DERIVED | 26/26 rows pass |
+| Report: A4, 10 mm margins, frozen snapshot, file name ignisense-report-YYYYMMDD-HHMM | FIXED | Checked: prints to exactly 1 PDF page |
+| Engine sound: pop τ 4 ms + body thump 70 + N/60 Hz (τ 9 ms), low-pass 1.6 kHz, 8 cycles looped, rebuilt ≤ 2.5×/s | PROVISIONAL | Q-55 |
+| Hot city: 40 °C, 3,500 rpm / 160 N·m ↔ idle every 60 s, clog S₀ 0.3 'wears on' | PROVISIONAL | Q-56 |
+
+## Phase 13: real data sources
+
+| Value | Status | Reason |
+| --- | --- | --- |
+| Recording: 36,000 rows (30 simulated min at 20 Hz), ring buffer, CSV columns t, rpm, load, ambientC, coolantC, oilC, oilPressBar, busV, fanOn, torqueCmdNm (5–6 decimals) | FIXED | Q-62 |
+| Live source: a channel older than 2 s reads null (dropout) | PROVISIONAL | |
+| ESP32: 115,200 baud, one JSON object per line; OBD-II: ELM327 at 38,400 baud, ATZ/ATE0/ATL0/ATS0/ATSP0, PIDs 0C 04 05 0F 42 polled in turn | PROVISIONAL | Q-58, Q-59 |
+| Stuck check needs ≥ 80 % changing readings before the freeze (EMA τ 10 s) | PROVISIONAL | Q-61 |
+| Accelerometer: last 4 s, resampled to 256 points, Hann window, amplitude ×4/n | DERIVED | Q-60 |

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { SectionHeader } from '../shell/Brand';
 import { Reveal, fadeUp, stagger } from '../motion';
 import { CHECKS, passes } from './validationChecks';
+import { BRAND } from '../../brand';
 
 const fmt = (v: number, d: number) =>
   v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -17,8 +18,8 @@ export function ValidationPage() {
     <div className="flex flex-col gap-14">
       <SectionHeader
         index="05"
-        title="Validation"
-        description="Hand-calculated values beside the model's, computed live from the same physics the simulator runs. Rows pass within 2 %, the same rule as the test suite."
+        title={`${BRAND.product} validation`}
+        description="Hand-calculated and table values beside the model's, computed live from the same physics and analytics the simulator runs. Rows pass within 2 %, the same rule as the test suite."
         aside={
           <span className="num text-sm text-fg-2">
             <b className={passed === done.length ? 'text-ok' : 'text-crit'}>

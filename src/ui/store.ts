@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { ScenarioId } from '../worker/protocol';
+import type { MonitoredChannel, SensorFaultKind } from '../plant';
 import type { BindingId } from './math/bindings';
 
 /** UI-only state: navigation and test-bench controls. Simulation state comes from the worker (sim/simClient.ts). */
@@ -20,7 +21,7 @@ export const isPageId = (s: string): s is PageId => PAGES.some((p) => p.id === s
 
 export type Warp = 1 | 10 | 60;
 export type FanMode = 'auto' | 'on' | 'off';
-export type FaultMode = 'gradual' | 'instant';
+export type FaultMode = 'gradual' | 'instant' | 'progressive';
 
 /** Fault catalogue. `phase` = the build phase that makes it injectable; `gain` = health lost per unit severity. */
 export const FAULTS = [
@@ -29,9 +30,9 @@ export const FAULTS = [
   { id: 'misfire', label: 'Cylinder misfire', phase: 7, gain: 1 },
   { id: 'bearing', label: 'Bearing wear', phase: 9, gain: 1 },
   { id: 'alternator', label: 'Alternator fault', phase: 9, gain: 1 },
-  { id: 'coolantSensor', label: 'Coolant sensor spike', phase: 9, gain: 1 },
+  { id: 'sensor', label: 'Sensor fault', phase: 9, gain: 1 },
 ] as const;
-export const AVAILABLE_PHASE = 7;
+export const AVAILABLE_PHASE = 9;
 
 export type FaultId = (typeof FAULTS)[number]['id'];
 
@@ -46,6 +47,9 @@ interface UiState {
   fault: FaultId;
   /** which cylinder the misfire fault hits */
   cylinder: 1 | 2 | 3 | 4;
+  /** which sensor the sensor fault breaks, and how */
+  sensorChannel: MonitoredChannel;
+  sensorKind: SensorFaultKind;
   severity: number;
   faultMode: FaultMode;
   scenario: ScenarioId;
@@ -53,6 +57,8 @@ interface UiState {
   math: BindingId | null;
   /** gauge selected on the Math page */
   mathPick: BindingId;
+  /** engine sound playing */
+  sound: boolean;
   set: (patch: Partial<Omit<UiState, 'set'>>) => void;
 }
 
@@ -71,10 +77,13 @@ export const useUi = create<UiState>((set) => ({
   ambient_C: 30,
   fault: 'oilPump',
   cylinder: 3,
+  sensorChannel: 'coolantC',
+  sensorKind: 'spike',
   severity: 0.6,
   faultMode: 'gradual',
-  scenario: 'hero',
+  scenario: 'tour',
   math: null,
   mathPick: 'oilPress',
+  sound: false,
   set: (patch) => set(patch),
 }));

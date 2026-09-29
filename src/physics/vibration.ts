@@ -54,6 +54,8 @@ export function synthesizeVibration(
   resist_Nm: number,
   imbalance = 1,
   p: EngineProfile = PROFILE,
+  /** bearing knock peak, m/s² (0 = healthy) */
+  knock = 0,
 ) {
   const n = run.omega.length;
   const rpm = (run.meanOmega_radps * 30) / Math.PI;
@@ -65,6 +67,15 @@ export function synthesizeVibration(
   for (let i = 0; i < n; i++) {
     const th = (i * run.step_deg * Math.PI) / 180;
     out[i] = a2 * Math.cos(2 * th) + a1 * Math.cos(th - phi1) - k * (run.gas[i]! - resist_Nm);
+    if (knock > 0) {
+      // once per revolution, 10° after TDC: a decaying ring (journal-bearing clearance knock;
+      // not a rolling-element BPFO/BPFI signature, CLAUDE.md rule 9)
+      const phi = ((((i * run.step_deg - 10) % 360) + 360) % 360) * (Math.PI / 180);
+      const v = p.vibration;
+      out[i] =
+        out[i]! +
+        knock * Math.exp(-(phi * 180) / Math.PI / v.knockDecay_deg) * Math.sin(v.knockOrder * phi);
+    }
   }
   return out;
 }

@@ -6,7 +6,7 @@ export type Status = 'ok' | 'watch' | 'warn' | 'crit' | 'invalid';
 export type AlertClass = 'INFO' | 'WATCH' | 'WARNING' | 'CRITICAL';
 export type AlertLevel = 'NORMAL' | Exclude<AlertClass, 'INFO'>;
 
-export type FaultKind = 'cooling' | 'lubrication' | 'charging' | 'combustion';
+export type FaultKind = 'cooling' | 'lubrication' | 'charging' | 'combustion' | 'sensor';
 export type SubsystemId =
   'lubrication' | 'thermal' | 'vibration' | 'combustion' | 'electrical' | 'sensors';
 
@@ -37,6 +37,13 @@ export interface Explanation {
   why: { text: string; status: Status }[];
   action: string;
   model: { physics: string; anomaly: string; anomalyStatus?: Status; rul: string };
+  /** draft §46: every advanced output carries its quality */
+  uncertainty: {
+    evidence: string;
+    dataQuality: string;
+    agreement: string;
+    level: 'Medium' | 'High';
+  };
 }
 
 export interface AlertRow {

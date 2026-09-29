@@ -29,6 +29,8 @@ export interface ChannelFeature {
   r: number;
   /** filtered residual in σ_r units */
   z: number;
+  /** this sample's unfiltered residual in σ_r units (0 when missing) */
+  zRaw: number;
   /** rate of change of the filtered residual, units per minute */
   ratePerMin: number;
   /** seconds the filtered residual has stayed above +zWarn / below −zWarn */
@@ -105,9 +107,11 @@ export class ResidualTracker {
       const s = this.st.get(c)!;
       const y = tel[c];
       const sigma = residualSigma(c);
+      let zRaw = 0;
       if (y == null) {
         dropped.push(c);
       } else {
+        zRaw = (y - expected[c]) / sigma;
         const raw = y - expected[c];
         s.r = s.initialised ? s.r + alpha * (raw - s.r) : raw;
         s.initialised = true;
@@ -130,6 +134,7 @@ export class ResidualTracker {
         expected: expected[c],
         r: s.r,
         z,
+        zRaw,
         ratePerMin,
         persistHigh_s: s.persistHigh_s,
         persistLow_s: s.persistLow_s,

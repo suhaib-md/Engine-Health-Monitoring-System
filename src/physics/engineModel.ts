@@ -162,3 +162,31 @@ export function stepThermal(
   const oil_C = state.oil_C + out.oilRate_Kps * dt;
   return { coolant_C, oil_C, fanOn: fanOverride ?? nextFanState(state.fanOn, coolant_C, p) };
 }
+
+/**
+ * The fastest the coolant can physically heat (review, "Proving a sensor fault with physics"): all
+ * coolant heat at full load and redline, zero cooling. 81.5 kW into 100 kJ/K ≈ 0.8 K/s.
+ */
+export function maxCoolantRate_Kps(p: EngineProfile = PROFILE) {
+  const out = evaluateEngine(
+    { coolant_C: 90, oil_C: 100, fanOn: false },
+    { rpm: p.speed.max_rpm, brakeTorque_Nm: 1e9, ambient_C: p.cooling.ambientRef_C },
+    HEALTHY,
+    p,
+  );
+  return out.coolantHeat_W / p.cooling.thermalCapacity_JperK;
+}
+
+/**
+ * The fastest the oil can physically heat: cold, thick oil at redline (most friction heat, fully
+ * degraded lubrication) plus the largest coolant-to-oil gradient (120 °C coolant, 20 °C oil).
+ */
+export function maxOilRate_Kps(p: EngineProfile = PROFILE) {
+  const l = p.lubrication;
+  const frictionPower =
+    frictionTorque_Nm(fmep_kPa(p.speed.max_rpm, 20, p), p) * rpmToRadps(p.speed.max_rpm);
+  const q =
+    l.oilFrictionHeatShare * frictionPower * (1 + l.lubeFrictionGain) +
+    l.oilCoolantCoupling_WperK * (120 - 20);
+  return q / l.oilThermalCapacity_JperK;
+}

@@ -11,6 +11,8 @@ export interface Explanation {
   why: { text: string; status: Status }[];
   action: string;
   model: { physics: string; anomaly: string; anomalyStatus?: Status; rul: string };
+  /** draft §46 */
+  uncertainty?: { evidence: string; dataQuality: string; agreement: string; level: string };
 }
 
 export function ExplanationCard({ e }: { e: Explanation }) {
@@ -55,6 +57,21 @@ export function ExplanationCard({ e }: { e: Explanation }) {
         </dd>
         <dt className="text-fg-2">RUL</dt>
         <dd className="m-0">{e.model.rul}</dd>
+        {e.uncertainty && (
+          <>
+            <span className="label col-span-2 mt-3">Confidence in this output</span>
+            <dt className="text-fg-2">Evidence strength</dt>
+            <dd className="m-0">{e.uncertainty.evidence}</dd>
+            <dt className="text-fg-2">Data quality</dt>
+            <dd className={`m-0 ${e.uncertainty.dataQuality === 'good' ? '' : 'text-watch'}`}>
+              {e.uncertainty.dataQuality}
+            </dd>
+            <dt className="text-fg-2">Model agreement</dt>
+            <dd className="m-0">{e.uncertainty.agreement}</dd>
+            <dt className="text-fg-2">Uncertainty</dt>
+            <dd className="m-0">{e.uncertainty.level} · prototype estimate, demo calibration</dd>
+          </>
+        )}
       </dl>
     </article>
   );

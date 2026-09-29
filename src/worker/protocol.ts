@@ -1,8 +1,15 @@
 import type { Lifecycle } from '../lifecycle';
 import type { Telemetry } from '../telemetry';
 import type { TwinExpected } from '../twin';
-import type { FanMode, FaultOnset, PlantFaultId } from '../plant';
+import type {
+  FanMode,
+  FaultOnset,
+  MonitoredChannel,
+  PlantFaultId,
+  SensorFaultKind,
+} from '../plant';
 import type { AnalyticsState } from '../analytics';
+import type { TelemetryPatch } from '../sources/serialSource';
 
 /** Messages between the UI thread and sim.worker.ts. */
 
@@ -16,7 +23,7 @@ export interface SimSettings {
   warp: Warp;
 }
 
-export type ScenarioId = 'hero' | 'overheat';
+export type ScenarioId = 'tour' | 'hero' | 'overheat' | 'hotCity';
 
 export type Command =
   | { type: 'start' }
@@ -25,6 +32,8 @@ export type Command =
   | { type: 'set'; settings: Partial<SimSettings> }
   | { type: 'reset'; seed?: number }
   | { type: 'injectFault'; fault: PlantFaultId; severity: number; onset: FaultOnset }
+  /** break a sensor (Plant side); the monitor has to notice from the data */
+  | { type: 'injectSensorFault'; channel: MonitoredChannel; kind: SensorFaultKind }
   | { type: 'clearFaults' }
   | { type: 'runScenario'; id: ScenarioId }
   | { type: 'stopScenario' }
@@ -33,7 +42,24 @@ export type Command =
   /** the judge picks a card by position; the worker injects what is on it */
   | { type: 'blindPick'; card: number }
   | { type: 'blindReveal' }
-  | { type: 'blindEnd' };
+  | { type: 'blindEnd' }
+  /** Phase 13 data sources: the analytics are the same whatever feeds them */
+  | { type: 'exportRecording' }
+  | { type: 'loadReplay'; csv: string; name: string }
+  | { type: 'useLive'; name: string }
+  | { type: 'liveTelemetry'; patch: TelemetryPatch }
+  | { type: 'useSimulator' };
+
+/** What is feeding the Twin and the analytics. */
+export interface SourceStatus {
+  kind: 'sim' | 'replay' | 'live';
+  name: string;
+  /** replay only: 0..1 through the file */
+  progress?: number;
+  done?: boolean;
+  /** replay/live: rows or readings received so far */
+  count?: number;
+}
 
 /**
  * Blind challenge as the UI sees it. Before the reveal it holds only positions and times, never
@@ -105,9 +131,14 @@ export interface Snapshot {
   scenario: ScenarioStatus | null;
   /** the blind challenge, if one is dealt */
   blind: BlindStatus | null;
+  source: SourceStatus;
   /** current control settings; the UI mirrors them when `settingsRev` changes (a scenario set them) */
   settings: SimSettings;
   settingsRev: number;
 }
 
-export type WorkerMessage = { type: 'snapshot'; snapshot: Snapshot };
+export type WorkerMessage =
+  | { type: 'snapshot'; snapshot: Snapshot }
+  /** reply to exportRecording, or an error loading a source */
+  | { type: 'recording'; csv: string; rows: number }
+  | { type: 'sourceError'; message: string };

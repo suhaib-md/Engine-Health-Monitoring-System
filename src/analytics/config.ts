@@ -38,6 +38,66 @@ export const ANALYTICS = {
     /** below this missing fraction no cylinder is named */
     nameAbove: 0.12,
   },
+  /** bearing wear shows as a 1× vibration rise and impacts (kurtosis) beside the pressure deficit */
+  bearing: {
+    firstRatio: { warn: 2, crit: 6 },
+    kurtosis: { warn: 2.2, crit: 4 },
+    /** vibration evidence above this names the lubrication fault "bearing wear" */
+    nameAbove: 0.3,
+  },
+  /** sensor sanity (review "Proving a sensor fault with physics"; draft §15, §39) */
+  sanity: {
+    /** a jump must beat the physical rate limit plus this many σ of sample-to-sample noise */
+    noiseAllowanceSigma: 6,
+    /** keep reporting an impossible jump this long after it happened */
+    violationLatch_s: 30,
+    /** identical consecutive readings (10 Hz) before a sensor counts as stuck */
+    stuckSamples: 30,
+    /** …from a sensor whose readings changed on at least this share of samples before (τ below) */
+    stuckNoisyShare: 0.8,
+    changeRateTau_s: 10,
+    /** dropout share over the last N readings: risk 0 at warn, 1 at crit */
+    dropoutWindow: 50,
+    dropoutWarn: 0.2,
+    dropoutCrit: 0.5,
+    /** coolant/oil cross-check */
+    crossCheckTau_s: 10,
+    driftCoolantSigma: 4,
+    driftGapSigma: 5,
+    driftHold_s: 30,
+  },
+  /** sensor faults are WARNING-class: the engine is fine, a sensor is not */
+  sensorScoreCap: 0.84,
+  /** statistical layer (review "Detection, AI and RUL"; Q-17) */
+  stats: {
+    baseline_s: 60,
+    /** χ²(5) 99 % */
+    chi2Limit: 15.09,
+    d2Hold_s: 3,
+    d2Clear_s: 20,
+    /** variance floor on the learned covariance diagonal (z units) */
+    minVarZ: 0.25,
+    /** vibration RMS in σ units: (ratio − 1) / this */
+    vibSigmaRel: 0.05,
+    cusumKappa: 0.5,
+    cusumH: 5,
+    cusumEvery_s: 1,
+    /** cap on S, so an alarm clears within ~25 s of the cause going away */
+    cusumCap: 15,
+    /** speed must stay within this band for 10 s to count as steady */
+    steadyBand_rpm: 150,
+    steadyWindow_s: 10,
+  },
+  /** RUL (review; draft §25; Q-19): straight-line fit of subsystem health */
+  rul: {
+    window_s: 120,
+    every_s: 1,
+    minSpan_s: 60,
+    /** health index at which a subsystem counts as failed (the critical evidence level) */
+    failHealth: 15,
+    /** slopes flatter than this are "not significant" even if the fit is tight */
+    minSlopePerMin: 0.5,
+  },
   /** analytics treats the engine as running above this fraction of idle speed */
   runningRpmFraction: 0.8,
   /** ignore alerts for this long after the engine starts (warm-up transients) */
@@ -61,7 +121,14 @@ export const ANALYTICS = {
 /** Fault evidence weights (draft §20.2). Symptoms we don't simulate are dropped and the rest renormalised (Q-15). */
 export const WEIGHTS = {
   cooling: { tempResidual: 0.4, tempRate: 0.2, fanIneffective: 0.15 },
-  lubrication: { lowPressure: 0.35, pressureResidual: 0.2, oilTemp: 0.2, pressureDecay: 0.1 },
+  lubrication: {
+    lowPressure: 0.35,
+    pressureResidual: 0.2,
+    oilTemp: 0.2,
+    /** draft 0.15: used only when the vibration evidence names bearing wear (Q-50) */
+    vibration: 0.15,
+    pressureDecay: 0.1,
+  },
   charging: { voltageResidual: 1 },
   /** draft section 20.2 misfire weights: rpm irregularity, firing spectrum, vibration, combustion (torque) */
   combustion: {

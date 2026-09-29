@@ -20,6 +20,26 @@ export const useSim = create<SimStore>(() => ({ snapshot: null }));
  */
 export const useWindows = create<{ windows: SimWindows | null }>(() => ({ windows: null }));
 
+/** Last message from a data-source action (recording saved, replay error, serial status). */
+export const useSourceMessage = create<{ message: string | null }>(() => ({ message: null }));
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Save the worker's recording as a CSV file (no server: a Blob download). */
+function download(csv: string, rows: number) {
+  const d = new Date();
+  const name = `ignisense-telemetry-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.csv`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  useSourceMessage.setState({
+    message: `Saved ${name}: ${rows.toLocaleString('en-US')} rows (${(rows / 20 / 60).toFixed(1)} simulated minutes).`,
+  });
+}
+
 let worker: Worker | null = null;
 let lastSettingsRev = 0;
 
@@ -64,6 +84,8 @@ export function useSimWorker() {
         type: 'module',
       });
       worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
+        if (e.data.type === 'recording') download(e.data.csv, e.data.rows);
+        if (e.data.type === 'sourceError') useSourceMessage.setState({ message: e.data.message });
         if (e.data.type === 'snapshot') {
           const { windows, ...rest } = e.data.snapshot;
           mirrorSettings(e.data.snapshot);

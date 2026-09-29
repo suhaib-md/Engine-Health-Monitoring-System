@@ -10,6 +10,7 @@ import {
   type FaultMode,
   type Warp,
 } from '../store';
+import type { MonitoredChannel, SensorFaultKind } from '../../plant';
 import { scoreStatus } from '../tokens';
 import { statusBg, statusText } from '../status';
 import { drawerSpring } from '../motion';
@@ -49,7 +50,9 @@ export function TestBench() {
         severity: ui.severity,
         onset: ui.faultMode,
       });
-    else if (fault.id === 'oilPump' || fault.id === 'cooling')
+    else if (fault.id === 'sensor')
+      sendSim({ type: 'injectSensorFault', channel: ui.sensorChannel, kind: ui.sensorKind });
+    else
       sendSim({ type: 'injectFault', fault: fault.id, severity: ui.severity, onset: ui.faultMode });
   };
 
@@ -106,13 +109,6 @@ export function TestBench() {
                     <span className="text-label leading-relaxed text-fg-3">{sc.blurb}</span>
                   </button>
                 ))}
-                <div
-                  aria-disabled="true"
-                  className="flex flex-col gap-1.5 border border-dashed border-line p-4 opacity-60"
-                >
-                  <span className="text-sm font-bold text-fg-2">Hot-city stop-and-go</span>
-                  <span className="text-label text-fg-3">Arrives in Phase 10.</span>
-                </div>
               </div>
               <div className="flex gap-3">
                 <Button
@@ -242,6 +238,32 @@ export function TestBench() {
                   ))}
                 </select>
               </label>
+              {fault.id === 'sensor' && (
+                <>
+                  <Segmented<MonitoredChannel>
+                    label="Sensor"
+                    value={ui.sensorChannel}
+                    onChange={(v) => ui.set({ sensorChannel: v })}
+                    options={[
+                      { value: 'coolantC', label: 'COOLANT' },
+                      { value: 'oilC', label: 'OIL T' },
+                      { value: 'oilPressBar', label: 'PRESS' },
+                      { value: 'busV', label: 'VOLT' },
+                    ]}
+                  />
+                  <Segmented<SensorFaultKind>
+                    label="Failure"
+                    value={ui.sensorKind}
+                    onChange={(v) => ui.set({ sensorKind: v })}
+                    options={[
+                      { value: 'spike', label: 'SPIKE' },
+                      { value: 'stuck', label: 'STUCK' },
+                      { value: 'drift', label: 'DRIFT' },
+                      { value: 'dropout', label: 'DEAD' },
+                    ]}
+                  />
+                </>
+              )}
               {fault.id === 'misfire' && (
                 <Segmented<'1' | '2' | '3' | '4'>
                   label="Cylinder"
@@ -253,26 +275,31 @@ export function TestBench() {
                   }))}
                 />
               )}
-              <Slider
-                label="Severity"
-                value={ui.severity}
-                min={0}
-                max={1}
-                step={0.01}
-                format={(v) => v.toFixed(2)}
-                fillClass={statusBg[sevStatus]}
-                valueClass={statusText[sevStatus]}
-                onChange={(v) => ui.set({ severity: v })}
-              />
-              <Segmented<FaultMode>
-                label="Onset"
-                value={ui.faultMode}
-                onChange={(v) => ui.set({ faultMode: v })}
-                options={[
-                  { value: 'gradual', label: 'GRADUAL' },
-                  { value: 'instant', label: 'INSTANT' },
-                ]}
-              />
+              {fault.id !== 'sensor' && (
+                <Slider
+                  label={ui.faultMode === 'progressive' ? 'Starting severity' : 'Severity'}
+                  value={ui.severity}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  format={(v) => v.toFixed(2)}
+                  fillClass={statusBg[sevStatus]}
+                  valueClass={statusText[sevStatus]}
+                  onChange={(v) => ui.set({ severity: v })}
+                />
+              )}
+              {fault.id !== 'sensor' && (
+                <Segmented<FaultMode>
+                  label="Onset"
+                  value={ui.faultMode}
+                  onChange={(v) => ui.set({ faultMode: v })}
+                  options={[
+                    { value: 'gradual', label: 'GRADUAL' },
+                    { value: 'instant', label: 'INSTANT' },
+                    { value: 'progressive', label: 'WEARS ON' },
+                  ]}
+                />
+              )}
               <div className="flex gap-3">
                 <Button
                   variant="danger"
@@ -293,12 +320,19 @@ export function TestBench() {
               </div>
 
               <p className="num m-0 text-label leading-relaxed text-fg-3">
-                Severity {ui.severity.toFixed(2)} leaves{' '}
-                {fault.id === 'misfire'
-                  ? `cylinder ${ui.cylinder} combustion`
-                  : fault.label.toLowerCase()}{' '}
-                at health {(1 - fault.gain * ui.severity).toFixed(2)}. Gradual onset ramps over 120
-                simulated seconds. All values are demo calibration.
+                {fault.id === 'sensor'
+                  ? 'A sensor fault leaves the engine healthy: the monitor has to prove, from physics and the other sensors, that the reading is wrong.'
+                  : fault.id === 'bearing'
+                    ? `Bearing wear ${ui.severity.toFixed(2)} lowers oil pressure by ${((1 - 1 / (1 + 1.5 * ui.severity)) * 100).toFixed(0)} % and loosens the crank (1× vibration and knock).`
+                    : `Severity ${ui.severity.toFixed(2)} leaves ${
+                        fault.id === 'misfire'
+                          ? `cylinder ${ui.cylinder} combustion`
+                          : fault.label.toLowerCase()
+                      } at health ${(1 - fault.gain * ui.severity).toFixed(2)}.`}{' '}
+                {ui.faultMode === 'progressive' && fault.id !== 'sensor'
+                  ? 'Wears on: the fault keeps growing, faster under load, heat and speed, so the RUL estimate has a trend to follow.'
+                  : 'Gradual onset ramps over 120 simulated seconds.'}{' '}
+                All values are demo calibration.
               </p>
             </section>
           </motion.aside>

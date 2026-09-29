@@ -68,6 +68,21 @@ function SimClock() {
   );
 }
 
+/** A badge whenever something other than the simulator feeds the monitor. */
+function SourceBadge() {
+  const kind = useSim((s) => s.snapshot?.source.kind ?? 'sim');
+  const name = useSim((s) => s.snapshot?.source.name ?? '');
+  if (kind === 'sim') return null;
+  return (
+    <span
+      title={name}
+      className="num hidden max-w-[220px] truncate border border-fault-marker px-2.5 py-1 text-label font-bold text-fault-marker sm:inline-block"
+    >
+      {kind === 'replay' ? 'REPLAY' : 'LIVE'} · {name}
+    </span>
+  );
+}
+
 function SimLifecycle() {
   const lifecycle = useSim((s) => s.snapshot?.lifecycle ?? 'OFF');
   const transient = useSim((s) => s.snapshot?.transient ?? false);
@@ -129,6 +144,7 @@ export function AppShell() {
             </nav>
 
             <div className="ml-auto flex h-16 items-center gap-4">
+              <SourceBadge />
               <SimLifecycle />
               <SimClock />
               <Button variant="secondary" onClick={() => set({ benchOpen: true })}>

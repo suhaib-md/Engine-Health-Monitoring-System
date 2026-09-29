@@ -111,9 +111,9 @@ describe('time-warp and pause', () => {
     const t0 = performance.now();
     loop.advanceSim(3600);
     const ms = performance.now() - t0;
-    // 60× needs 1 simulated hour per wall minute. The loop now also builds and analyses a
-    // 16-revolution crank-angle window every simulated second (Phase 7), so demand ≥ 10× headroom
-    // (measured ≈ 14×; the tests also run in parallel workers).
-    expect(ms).toBeLessThan(60_000 / 10);
+    // 60× needs 1 simulated hour per wall minute. Each simulated second also builds and analyses a
+    // crank window and runs sanity, D², CUSUM and RUL (Phases 7 and 9). Measured alone ≈ 4.8 s
+    // (12× headroom); the suite runs files in parallel on one laptop CPU, so demand ≥ 6× (Q-45).
+    expect(ms).toBeLessThan(60_000 / 6);
   });
 });

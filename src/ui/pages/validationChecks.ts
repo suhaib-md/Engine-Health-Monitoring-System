@@ -2,6 +2,7 @@ import { PROFILE } from '../../engine/profile';
 import {
   angleWindow,
   evaluateEngine,
+  maxCoolantRate_Kps,
   oilPressure_bar,
   rpmToRadps,
   secondaryForcePeak_N,
@@ -11,6 +12,8 @@ import {
   type ThermalState,
 } from '../../physics';
 import { orderAmp, orderPhase_deg, orderSpectrum } from '../../analytics/fft';
+import { ANALYTICS, overallHealth } from '../../analytics';
+import { chi2Quantile, cusumSamplesToFlag } from '../../lib/stats';
 
 /**
  * In-app validation rows: the hand-calculated golden value beside what the model computes
@@ -204,6 +207,59 @@ export const CHECKS: Check[] = [
     decimals: 0,
     phase: 7,
     model: () => out(3, 0.5).cmd,
+  },
+  {
+    check: 'χ²₅ 99 % point (D² alarm limit)',
+    expected: 15.09,
+    unit: '',
+    decimals: 2,
+    phase: 9,
+    model: () => chi2Quantile(0.99, 5),
+  },
+  {
+    // review: "a residual sitting at 1σ … CUSUM flags it after about 10 samples"
+    check: 'CUSUM samples to flag a 1σ shift (κ 0.5, h 5)',
+    expected: 10,
+    unit: 'samples',
+    decimals: 0,
+    phase: 9,
+    tolAbs: 1,
+    model: () => cusumSamplesToFlag(1, ANALYTICS.stats.cusumKappa, ANALYTICS.stats.cusumH),
+  },
+  {
+    // review: 25 °C in one 0.2 s sample = 125 K/s, "over 150 times the physical limit"
+    check: '25 °C spike in 0.2 s ÷ max coolant heating rate',
+    expected: 153,
+    unit: '×',
+    decimals: 0,
+    phase: 9,
+    model: () => 25 / 0.2 / maxCoolantRate_Kps(),
+  },
+  {
+    // draft §22.1: thermal 0.47, lubrication 0.33, vibration 0.38, combustion 0.20
+    check: 'Overall health example (draft §22.1)',
+    expected: 69.4,
+    unit: '',
+    decimals: 1,
+    phase: 9,
+    model: () =>
+      overallHealth({
+        thermal: 0.47,
+        lubrication: 0.33,
+        vibration: 0.38,
+        combustion: 0.2,
+        electrical: 0,
+        sensors: 0,
+      }),
+  },
+  {
+    // draft §25.2: D 0.62 → 1 at 0.008 per hour; the same arithmetic as rul.ts with health = 1 − D
+    check: 'Linear RUL example (draft §25.2)',
+    expected: 47.5,
+    unit: 'h',
+    decimals: 1,
+    phase: 9,
+    model: () => (1 - 0.62) / 0.008,
   },
 ];
 

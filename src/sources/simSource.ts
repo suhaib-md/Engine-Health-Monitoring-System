@@ -42,7 +42,7 @@ export class SimSource implements TelemetrySource {
       this.lastWindow = idx;
       const input = this.plant.crankInput();
       if (input) {
-        const w = this.crank.window(input);
+        const w = this.crank.window(input, this.plant.health.bearingWear);
         tel.crankSpeedWindow = w.speed;
         tel.vibWindow = w.vib;
       }

@@ -18,6 +18,10 @@ export interface History {
   busVExp: number[];
   rpm: number[];
   health: (number | null)[];
+  /** Mahalanobis D², capped for display */
+  d2: (number | null)[];
+  /** largest CUSUM statistic over the five channels */
+  cusum: (number | null)[];
   /** bumps on every append/reset so charts know to redraw */
   version: number;
 }
@@ -25,6 +29,8 @@ export interface History {
 /** minimum simulated spacing between stored points; cap keeps ~1 h at 60× in memory */
 const MIN_DT_S = 0.5;
 const MAX_POINTS = 4000;
+/** D² reaches the thousands under a hard fault; the chart shows up to this */
+export const D2_CAP = 60;
 
 const empty = (): History => ({
   t: [],
@@ -38,6 +44,8 @@ const empty = (): History => ({
   busVExp: [],
   rpm: [],
   health: [],
+  d2: [],
+  cusum: [],
   version: 0,
 });
 
@@ -64,6 +72,9 @@ function append(s: Snapshot) {
   h.busVExp.push(s.expected.busV);
   h.rpm.push(s.telemetry.rpm);
   h.health.push(s.analytics?.overallHealth ?? null);
+  const d2 = s.analytics?.stats.d2;
+  h.d2.push(d2 == null ? null : Math.min(d2, D2_CAP));
+  h.cusum.push(s.analytics?.armed ? (s.analytics.stats.cusumMax ?? null) : null);
   if (h.t.length > MAX_POINTS) {
     for (const k of Object.keys(h) as (keyof History)[]) {
       const col = h[k];

@@ -32,7 +32,7 @@ IgniSense is a browser-only digital twin of a 2.0 L inline-4 petrol engine. A **
 - **Fonts:** Space Grotesk (UI) + JetBrains Mono (every number/label, `num` utility for tabular figures). Self-hosted via @fontsource, so the app works offline.
 - **Airy (Amendment A, overrides the original handoff):** 24/40px page gutters, max width 1440px, 24px gaps between regions, 24px+ panel padding, a numbered section header on each page, and one idea per view. Test-bench controls live in a slide-in drawer, not a sidebar.
 - **Motion:** `motion` (`motion/react`). Page transitions, sliding tab indicator, scroll-reveal stagger, spring drawer, hover lift. Shared presets are in `src/ui/motion.tsx`. **Live numbers never tween**; only geometry animates. `MotionConfig reducedMotion="user"` plus the CSS reduced-motion rule.
-- **Live data:** Live Twin, Trends, Vibration, the header, the test bench and Debug are live from the worker (`src/ui/sim/`). Only Report (Phase 10) still shows labelled sample content. A zustand selector must never return a fresh `[]`/`{}` (it re-renders forever); use a module-level constant.
+- **Live data:** every page is live from the worker (`src/ui/sim/`); the Report is a frozen snapshot of it. There is no sample data left. A zustand selector must never return a fresh `[]`/`{}` (it re-renders forever); use a module-level constant.
 
 ---
 
@@ -69,7 +69,7 @@ Login, database server, fleet/multi-engine views, Isolation Forest, neural netwo
 | Fonts | `@fontsource/space-grotesk`, `@fontsource/jetbrains-mono` (offline) |
 | Tests | Vitest. The same physics tests feed the in-app Validation page |
 | Lint/format | ESLint 10 flat config + typescript-eslint, Prettier |
-| Deploy | Static build → Cloudflare Pages or Vercel. Must also run offline via `npm run preview` |
+| Deploy | Not hosted: the brother runs it locally (`npm run dev`, or `npm run build` + `npm run preview`), fully offline |
 
 ## Folder structure
 
@@ -84,7 +84,8 @@ src/
   plant/       state + fault states, sensor model (noise, bias, drift, dropout, stuck, spike), crank.ts (crank-speed and accelerometer windows)
   twin/        healthy reference: same physics, all health = 1
   analytics/   residuals, features, fft, mahalanobis, cusum, diagnosis, health, rul, alerts
-  sources/     simSource, replaySource (CSV), serialSource (ESP32 / OBD-II stub)
+  sources/     simSource, csv (Telemetry ⇄ CSV), replaySource (CSV replay), serialSource (ESP32 JSON lines,
+               ELM327 OBD-II parser, LiveSource); the page-side Web Serial and accelerometer code is in ui/sources/
   worker/      simLoop.ts (testable loop: source -> twin -> analytics, runs scenarios on the simulated clock),
                scenarios.ts (hero + overheat scripts), blind.ts (blind-mode deck; the answer stays in the worker), sim.worker.ts (thin Worker wrapper, 20 Hz snapshots),
                protocol.ts (Command / Snapshot types)
@@ -131,6 +132,7 @@ npm run typecheck    # tsc -b (noEmit is set in tsconfig)
 npm run format       # Prettier write
 npm run build        # typecheck + production build
 npm run preview      # serve the build locally (offline demo)
+npm run demo         # build + open http://localhost:4173 (what start-ignisense.bat runs)
 ```
 
 ---
@@ -409,41 +411,47 @@ Doc: review *Features* (first two rows).
 ### Phase 9: Advanced analytics
 Doc: review *Detection, AI and RUL*; draft §18.3, §19.3, §25–26, §46. Open questions: Q-09, Q-10, Q-17, Q-19.
 
-- [ ] Mahalanobis D² (60 s baseline, per-signal contributions, χ² 99 % limit)
-- [ ] CUSUM per normalized residual
-- [ ] Sensor sanity: rate limit (0.8 K/s), stuck/dropout, cross-check; sensor-fault injection (spike, stuck, drift, dropout)
-- [ ] RUL: sliding-window fit, ±2·s_b band, significance gate, simulated hours; uncertainty block (draft §46)
-- [ ] Stress-dependent fault progression (load affects RUL)
-- [ ] Trends: D² and CUSUM with limits
-- [ ] Extra faults: bearing wear (draft §18.3 wear law), alternator
+- [x] Mahalanobis D² (60 s baseline, per-signal contributions, χ² 99 % limit)
+- [x] CUSUM per normalized residual
+- [x] Sensor sanity: rate limit (0.8 K/s), stuck/dropout, cross-check; sensor-fault injection (spike, stuck, drift, dropout)
+- [x] RUL: sliding-window fit, ±2·s_b band, significance gate, simulated hours; uncertainty block (draft §46)
+- [x] Stress-dependent fault progression (load affects RUL)
+- [x] Trends: D² and CUSUM with limits
+- [x] Extra faults: bearing wear (draft §18.3 wear law), alternator
 
 **Exit checks:** A healthy run crosses D² 99 % only ~1 % of the time with no persistent alarm. CUSUM flags the pump at 85 % health before any fixed limit trips. A 25 °C coolant spike is reported as a sensor fault citing the rate limit. RUL shows "trend not significant" when healthy and a band under wear. Raising load shortens RUL.
+
+✅ Plant: 'wears on' onset with stress-dependent progression (Q-10), bearing-wear law (Q-09) with 1× vibration and knock, alternator fault, sensor faults (spike, stuck, drift, dead) from the test bench and the blind deck (now 9 cards). Analytics: `sanity.ts` (rate limit from the energy balance, stuck, dropout, coolant/oil cross-check; rejected readings never reach the diagnosis), `statistics.ts` (D² with contributions, CUSUM), `rul.ts` (fit, ±2·s_b band, significance gate), bearing wear named inside the lubrication hypothesis (Q-50), sensor-fault hypothesis (WARNING-class, Q-53), early warnings (Q-54), draft §46 confidence block and §26 exposure counters. UI: D² and CUSUM charts on Trends, RUL line on Live Twin, sensor quality dots, new test-bench options. CUSUM exposed two real Twin biases, both fixed (Q-51). **All exit checks pass as tests** (phase9.test.ts); 315 tests. Browser: spike named a coolant sensor fault citing 243 K/s vs 0.81 K/s; wearing pump gave RUL ~55 s (49–61 s), 4/4 indicators agreeing. Open: Q-50, Q-52 – Q-54 and the brother's Q-09.
 
 ---
 
 ### Phase 10: Validation, report, polish features
 Doc: review *Features* (Should rows); draft §26, §49–50.
 
-- [ ] Validation page (IgniSense-branded): in-app physics checks with expected vs model values
-- [ ] Maintenance report "IgniSense maintenance report · Team Revora": fault, evidence, action, RUL band, exposure counters (draft §26), timestamp; print-to-PDF
-- [ ] Engine sound (Web Audio; a misfire stumbles audibly)
-- [ ] Hot-city stop-and-go scenario (40 °C ambient)
-- [ ] Live cause-and-effect graph (draft §6) (optional)
+- [x] Validation page (IgniSense-branded): in-app physics checks with expected vs model values
+- [x] Maintenance report "IgniSense maintenance report · Team Revora": fault, evidence, action, RUL band, exposure counters (draft §26), timestamp; print-to-PDF
+- [x] Engine sound (Web Audio; a misfire stumbles audibly)
+- [x] Hot-city stop-and-go scenario (40 °C ambient)
+- [x] Live cause-and-effect graph (draft §6) (optional)
 
 **Exit checks:** The Validation page is all green. The report prints on one page with the branding.
 
+✅ Validation: 26 live rows (5 new: χ²₅ 99 % via `lib/stats.ts`, CUSUM samples, spike ÷ rate limit, draft §22.1 health, draft §25.2 RUL), all passing, IgniSense-branded title. Report: live, frozen snapshot with verdict, evidence, action, RUL band, subsystem bars, health history, model status and confidence, draft §26 exposure, recent alerts; print stylesheet puts only the sheet on A4 and names the PDF `ignisense-report-<time>`. Engine sound (`ui/audio/`) from the measured crank speed (Q-55). Hot-city stop-and-go scenario (Q-56). Live cause-and-effect graph on Live Twin (draft §6). **Exit checks:** Validation 26/26 green in the browser; the report printed by Edge to exactly 1 PDF page with the branding. 328 tests; build clean.
+
 ---
 
-### Phase 11: Demo hardening and deploy
+### Phase 11: Demo hardening and local-run package
 Doc: review *Demo script and judge Q&A*; draft §53, §55.
 
-- [ ] Full 5-minute script rehearsed in the app
-- [ ] Offline check: `npm run build && npm run preview` with Wi-Fi off
-- [ ] Deploy (Cloudflare Pages or Vercel); README with the IgniSense / Team Revora intro
-- [ ] Performance: 60 fps, no memory growth over 30 minutes
-- [ ] The brother can derive ω = 314 rad/s, 4/3 and 0.8 K/s on a whiteboard; the limitations slide (draft §55) is ready
+- [x] Full 5-minute script rehearsed in the app
+- [x] Offline check: `npm run build && npm run preview` with Wi-Fi off
+- [x] Local-run package (no hosting: the brother downloads and runs it): README with setup, one-click start scripts, IgniSense / Team Revora intro
+- [~] Performance: no memory growth (verified); 60 fps needs the demo laptop's GPU (Q-36)
+- [x] The brother can derive ω = 314 rad/s, 4/3 and 0.8 K/s on a whiteboard; the limitations slide (draft §55) is ready
 
 **Exit checks:** Two clean full demo runs back to back.
+
+✅ **Full demo tour** scenario (review script steps 2–6 on one button, every moment gated on what the monitor concluded; `until: { fault }` conditions) with Pause/Resume on the scenario strip. **Exit check:** `rehearsal.test.ts` plays the tour twice back to back in one loop: every moment as scripted (2.5 bar cold, CUSUM before the rules, lubrication + significant RUL, cylinder 3 at ×4/3, coolant sensor fault) and both runs identical. Local-run package: `start-ignisense.bat` / `.sh`, `npm run demo`, `engines` ≥ 20.19, README rewritten as the brother's run guide, `docs/demo-script.md`, `docs/whiteboard.md` (derivations + limitations). Offline: the production build loads every page (3D and KaTeX chunks included) with 0 external requests. Memory: page heap flat at ≈15 MB over 12 min / 10.7 simulated hours at 60×; worker loop flat at 12.4 MB over 6 simulated hours. Not verifiable here: 60 fps on a GPU (Q-36).
 
 ---
 
@@ -457,16 +465,21 @@ Doc: `docs/open-questions.md`
 
 **Exit checks:** No OPEN items left. Everything green.
 
+⏳ **Prepared, waiting for the user and the brother.** [docs/open-questions-review.md](docs/open-questions-review.md) sorts all 62 questions: 14 for the physics owner, 10 for the user (demo/product), 24 engineering choices recommended as final, 14 already resolved; 4 open (Q-26 phone width, Q-36 fps on the demo laptop, Q-57 overall-health display, Q-59 real hardware). Every provisional choice is implemented and covered by tests, so accepting one changes no code. After the review: mark items RESOLVED, apply any changes, re-run `npm test` and the Validation page, and check calibration.md.
+
 ---
 
 ### Phase 13 (stretch): real data sources
 Doc: review *Hardware roadmap*; draft §47.
 
-- [ ] `sources/replaySource.ts` (CSV replay)
-- [ ] Phone accelerometer via DeviceMotion into the same FFT
-- [ ] `sources/serialSource.ts`: Web Serial for ESP32 JSON lines / USB ELM327 OBD-II (PIDs 0C, 04, 05, 0F, 0B, 42)
+- [x] `sources/replaySource.ts` (CSV replay)
+- [x] Phone accelerometer via DeviceMotion into the same FFT
+- [x] `sources/serialSource.ts`: Web Serial for ESP32 JSON lines / USB ELM327 OBD-II (PIDs 0C, 04, 05, 0F, 0B, 42)
 
 ---
+
+✅ `sources/csv.ts` (Telemetry ⇄ CSV), `replaySource.ts` (sample-and-hold on the loop clock, stops at the end), `serialSource.ts` (ESP32 JSON lines, ELM327 response parser with the review's PID formulas, `LiveSource`). The worker records the last 30 simulated minutes (ring buffer) and switches between simulator, replay and live sources; the Twin and analytics are unchanged (rule 2). UI: Debug & data page with Download recording / Replay a CSV / Connect ESP32 / Connect OBD-II / Back to simulator, a REPLAY/LIVE header badge, and a device-accelerometer panel on the Vibration page through the same FFT. Tests: CSV round trip, **replaying a recorded pump-fault run reproduces the diagnosis**, PID decoding, JSON lines, an OBD-II-only live source (oil channels not fitted, no false sensor fault), the accelerometer spectrum. Browser: recorded, downloaded and replayed a 36,000-row file; the replay ends with the same diagnosis. Two real bugs found and fixed: a false stuck alarm on coarse sensors and a frozen-row alarm at the end of a replay (Q-61, Q-62). Not tested on real hardware (Q-59).
+
 
 ## Progress log
 
@@ -483,3 +496,8 @@ _One line per completed phase: date, phase, result, open issues._
 - 2026-09-29: **Phase 6 complete (hero scenario).** Scripted scenarios run on the simulated clock inside the worker (`worker/scenarios.ts`); one-click **Run hero scenario**, narration strip and a scenario picker; controls mirror back to the sliders. Cold start reads 2.54 bar and settles as the oil warms; the oil-pump fault is diagnosed. Three runs at different chunkings are identical (tested); one full run checked in a real browser. New Q-43, Q-44.
 - 2026-09-29: **Phase 7 complete (crank angle, vibration, misfire).** Crank-angle torque model, vibration synthesis, own FFT with order tracking, misfire detection that names the cylinder from the 0.5× phase, live Vibration page with polar plot, vibration gauge, 3D flash suppression and F₂ shake, adaptive 3D quality (Q-36). All review goldens reproduce; every cylinder is named correctly through the whole chain. 182 tests; lint/typecheck/build clean. New Q-39 – Q-42, Q-45; Q-12/Q-13/Q-14/Q-22/Q-25 moved on. Next: Phase 8 (Show the math + blind mode).
 - 2026-09-29: **Phase 8 complete (Show the math + blind mode).** KaTeX drawer from any gauge value and a live Math page, 27 registered equations with substitution templates proven to evaluate to their compute(); per-gauge bindings whose numbers equal the gauges (tested in six states); blind challenge with sealed, worker-shuffled cards, every fault named correctly at the reveal. Oil-pressure ghost now uses the measured-oil-temperature expectation (Q-47); `?no3d` switch (Q-49). 293 tests; lint/typecheck/build clean. Next: Phase 9 (advanced analytics).
+- 2026-09-29: **Phase 9 complete (advanced analytics).** Sensor sanity with physical proof, Mahalanobis D², CUSUM, RUL with confidence band, stress-dependent progression, bearing and alternator faults, sensor faults, uncertainty block, exposure counters. Two Twin biases found by CUSUM and fixed (Q-51). Deployment dropped: the brother runs the code locally (Phase 11 = local-run readiness). 315 tests; lint/typecheck/build clean. Next: Phase 10.
+- 2026-09-29: **Phase 10 complete (validation, report, sound, hot city, cause-and-effect).** Validation 26/26; live one-page maintenance report (checked as a 1-page PDF); engine sound from measured firing strength; hot-city stop-and-go scenario; live cause-and-effect graph. 328 tests; lint/typecheck/build clean. New Q-55 – Q-57. Next: Phase 11 (local-run readiness).
+- 2026-09-29: **Phase 11 complete (demo hardening, local-run package).** One-button full demo tour with pause; rehearsal test plays it twice identically; start scripts, README run guide, demo script, whiteboard derivations and limitations; 0 external requests offline; no memory growth (page 15 MB flat over 10.7 simulated hours, worker 12.4 MB flat over 6). 60 fps still needs the demo laptop (Q-36). Next: Phase 12 (open-questions review, needs the user and brother) and Phase 13 (stretch).
+- 2026-09-29: **Phase 13 complete (real data sources).** Recording + CSV export, CSV replay that reproduces the diagnosis, ESP32 and OBD-II over Web Serial, device accelerometer through the same FFT; same Twin and analytics for every source. 361 tests; lint/typecheck/build clean. New Q-58 – Q-62 (Q-59: no real hardware tested yet).
+- 2026-09-29: **Phase 12 prepared.** `docs/open-questions-review.md` is the decision sheet (generated from open-questions.md, with a recommendation per item). The review itself needs the user and the brother; nothing is marked final on their behalf.

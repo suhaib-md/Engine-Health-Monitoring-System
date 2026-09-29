@@ -91,4 +91,25 @@ export const coolingEquations = [
     substitute: (s) =>
       String.raw`\frac{${s.v('Q_cool')} - ${s.v('UA')}\,\left(${s.v('T_c')} - ${s.v('T_amb')}\right)}{100{,}000}`,
   }),
+  defineEquation<{ Q_max: number; C_th: number }>({
+    id: 'cooling.maxRate',
+    title: 'Fastest physical coolant heating',
+    subsystem: 'cooling',
+    latex: String.raw`\left.\frac{dT_c}{dt}\right|_{max} = \frac{\dot Q_{cool,max}}{C_{th}}`,
+    inputs: {
+      Q_max: {
+        symbol: String.raw`\dot Q_{cool,max}`,
+        unit: 'W',
+        label: 'coolant heat at full load and redline, zero cooling',
+      },
+      C_th: { symbol: 'C_{th}', unit: 'J/K', label: 'coolant thermal mass' },
+    },
+    output: {
+      symbol: String.raw`\dot T_{max}`,
+      unit: 'K/s',
+      label: 'maximum coolant heating rate',
+    },
+    compute: ({ Q_max, C_th }) => Q_max / C_th,
+    substitute: (s) => String.raw`\frac{${s.v('Q_max')}}{${s.v('C_th')}}`,
+  }),
 ];

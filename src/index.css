@@ -241,8 +241,28 @@ a:hover {
 }
 
 @media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
   body {
     background: var(--color-paper);
     color: var(--color-ink);
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  /* printing the maintenance report: only the sheet takes space, so it is exactly one page */
+  body.print-report header,
+  body.print-report footer,
+  body.print-report [data-print-hide] {
+    display: none !important;
+  }
+  body.print-report main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  body.print-report #report-sheet {
+    max-width: none;
+    padding: 0;
   }
 }

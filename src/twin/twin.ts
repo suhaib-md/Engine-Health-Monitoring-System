@@ -36,15 +36,30 @@ export interface TwinExpected {
   ripplePPRpm: number;
 }
 
+/** observer initialisation: ease toward measured temperatures while parked and just after start */
+const ANCHOR_TAU_S = 3;
+const ANCHOR_WINDOW_S = 10;
+
 export class Twin {
   private state: ThermalState | null = null;
   private lastT: number | null = null;
+  private runningSince: number | null = null;
 
   constructor(private readonly p: EngineProfile = PROFILE) {}
 
   reset() {
     this.state = null;
     this.lastT = null;
+    this.runningSince = null;
+  }
+
+  /**
+   * Idle deadband: a noisy load reading is clipped at 0, so at true zero load it averages
+   * +0.4σ (+0.0016). Burnt by the Twin over a 25-minute warm-up that is a 0.4 °C lead on the
+   * coolant, which CUSUM rightly flags. Readings below 3σ of the load sensor count as zero (Q-51).
+   */
+  private cleanLoad(load: number) {
+    return load < 3 * this.p.sensors.load.sigma ? 0 : load;
   }
 
   /** The operating point implied by telemetry: torque = L · T_max(N). */
@@ -52,7 +67,7 @@ export class Twin {
     const rpm = Math.max(0, tel.rpm);
     return {
       rpm,
-      brakeTorque_Nm: rpm > 0 ? tel.load * maxTorque_Nm(rpm, this.p) : 0,
+      brakeTorque_Nm: rpm > 0 ? this.cleanLoad(tel.load) * maxTorque_Nm(rpm, this.p) : 0,
       ambient_C: tel.ambientC,
     };
   }
@@ -60,7 +75,10 @@ export class Twin {
   /**
    * Advance to the telemetry's timestamp and return what a healthy engine should read now.
    * On the first sample the Twin initialises its temperatures from the measured values (like a
-   * real observer at key-on), falling back to ambient if a sensor is dropped.
+   * real observer at key-on), falling back to ambient if a sensor is dropped. One sample carries
+   * the sensor noise (±0.2 °C) into the Twin for good, so while the engine is off and for the first
+   * 10 s after it starts the Twin also eases toward the measurements (τ 3 s), averaging the
+   * noise out before it starts predicting on its own (Q-51).
    */
   update(tel: Telemetry): TwinExpected {
     const op = this.operatingPoint(tel);
@@ -75,6 +93,16 @@ export class Twin {
       if (dt > 0) {
         // Follow the measured fan command when known; otherwise run the Twin's own thermo-switch.
         this.state = stepThermal(this.state, op, dt, HEALTHY, this.p, tel.fanOn ?? undefined);
+        const running = op.rpm > 0.8 * this.p.speed.idle_rpm;
+        if (!running) this.runningSince = null;
+        else this.runningSince ??= tel.t;
+        const anchoring = this.runningSince == null || tel.t - this.runningSince < ANCHOR_WINDOW_S;
+        if (anchoring) {
+          const k = 1 - Math.exp(-dt / ANCHOR_TAU_S);
+          if (tel.coolantC != null)
+            this.state.coolant_C += k * (tel.coolantC - this.state.coolant_C);
+          if (tel.oilC != null) this.state.oil_C += k * (tel.oilC - this.state.oil_C);
+        }
       }
     }
     this.lastT = tel.t;

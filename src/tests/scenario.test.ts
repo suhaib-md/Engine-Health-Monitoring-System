@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SimLoop } from '../worker/simLoop';
-import { SCENARIOS } from '../worker/scenarios';
+import { scenarioById } from '../worker/scenarios';
 import type { ScenarioId } from '../worker/protocol';
 
 // Phase 6 gate: the hero scenario must play identically every run, whatever the time-warp.
@@ -63,7 +63,7 @@ describe('hero scenario', () => {
   it('reaches its last step', () => {
     for (const r of runs) {
       expect(r.loop.snapshot().scenario?.done).toBe(true);
-      expect(r.stepAt).toHaveLength(SCENARIOS[0]?.steps.length ?? -1);
+      expect(r.stepAt).toHaveLength(scenarioById('hero').steps.length);
     }
   });
 
@@ -143,5 +143,38 @@ describe('scenario control', () => {
     expect(s.settings.ambient_C).toBe(20);
     expect(s.settings.targetRpm).toBe(800);
     expect(s.settingsRev).toBeGreaterThan(rev);
+  });
+});
+
+describe('hot-city stop-and-go scenario (Phase 10)', () => {
+  const loop = new SimLoop();
+  loop.handle({ type: 'runScenario', id: 'hotCity' });
+  let faultAt = -1;
+  let worstBeforeFault = 'NORMAL';
+  let fanCycles = 0;
+  let lastFan = false;
+  while (!loop.snapshot().scenario?.done && loop.telemetry.t < 6000) {
+    loop.advanceSim(1);
+    const s = loop.snapshot();
+    if (faultAt < 0 && s.faultEvents.length) faultAt = s.telemetry.t;
+    if (faultAt < 0 && s.analytics && s.analytics.overallLevel !== 'NORMAL')
+      worstBeforeFault = s.analytics.overallLevel;
+    const fan = !!s.telemetry.fanOn;
+    if (fan && !lastFan) fanCycles++;
+    lastFan = fan;
+  }
+  const end = loop.snapshot();
+
+  it('four healthy cycles in 40 °C heat raise no alert, while the fan works', () => {
+    expect(faultAt).toBeGreaterThan(0);
+    expect(worstBeforeFault).toBe('NORMAL');
+    expect(fanCycles).toBeGreaterThan(0);
+  });
+
+  it('ends with the cooling system named and thermal health falling', () => {
+    expect(end.scenario?.done).toBe(true);
+    expect(end.analytics?.explanation?.fault).toBe('Cooling-system degradation');
+    const thermal = end.analytics!.subsystems.find((x) => x.id === 'thermal')!.health!;
+    expect(thermal).toBeLessThan(70);
   });
 });

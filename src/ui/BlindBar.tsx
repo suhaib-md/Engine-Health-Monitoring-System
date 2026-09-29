@@ -58,7 +58,7 @@ export function BlindBar() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 xl:grid-cols-9">
               {Array.from({ length: blind.cards }, (_, i) => {
                 const chosen = blind.picked === i;
                 const faded = blind.picked != null && !chosen;

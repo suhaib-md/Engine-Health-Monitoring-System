@@ -109,6 +109,11 @@ describe('lifecycle awareness', () => {
     expect(a(loop).overallLevel).not.toBe('NORMAL');
     loop.handle({ type: 'clearFaults' });
     loop.advanceSim(180);
+    // the rule alert clears after its hysteresis hold…
+    expect(a(loop).levels.lubrication).toBe('NORMAL');
+    // …while the oil, overheated by the poor lubrication, cools back to the Twin (τ ≈ 57 s);
+    // until then CUSUM rightly keeps a WATCH on oil temperature
+    loop.advanceSim(300);
     expect(a(loop).overallLevel).toBe('NORMAL');
   });
 });

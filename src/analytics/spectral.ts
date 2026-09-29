@@ -1,5 +1,5 @@
 import { PROFILE } from '../engine/profile';
-import { cylinderFromPhase, missingFractionFromHalfOrder } from '../physics';
+import { cylinderFromPhase, missingFractionFromHalfOrder, secondaryAccel_ms2 } from '../physics';
 import type { Telemetry } from '../telemetry';
 import type { TwinExpected } from '../twin';
 import { ANALYTICS } from './config';
@@ -42,7 +42,7 @@ export interface SpectralFeatures {
     secondAmp: number;
   };
   /** measured / the healthy Twin's expectation (torqueCmd is refreshed on every update) */
-  ratios: { rms: number; ripple: number; torqueCmd: number };
+  ratios: { rms: number; ripple: number; torqueCmd: number; first: number };
   /** the healthy Twin's resisting torque this window was normalised with, N·m */
   resistNm: number;
   misfire: {
@@ -139,6 +139,12 @@ export function analyseWindows(
       rms: exp.vibRmsMs2 > 0 ? vs.rms / exp.vibRmsMs2 : 1,
       ripple: exp.ripplePPRpm > 0 ? ripple / exp.ripplePPRpm : 1,
       torqueCmd: 1,
+      // 1× amplitude against the healthy imbalance line (bearing wear loosens the crank)
+      first:
+        vs.rms > 0
+          ? orderAmp(vibSpec, 1) /
+            Math.max(1e-6, PROFILE.vibration.imbalance1xFraction * secondaryAccel_ms2(ss.mean))
+          : 1,
     },
     resistNm: exp.resistNm,
     misfire: {
