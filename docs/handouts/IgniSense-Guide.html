@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>IgniSense — The Complete Guide · Team Revora</title>
+<style>
+@font-face { font-family: 'Space Grotesk'; font-weight: 400; src: url('fonts/space-grotesk-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Space Grotesk'; font-weight: 500; src: url('fonts/space-grotesk-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Space Grotesk'; font-weight: 700; src: url('fonts/space-grotesk-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; src: url('fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 700; src: url('fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2'); }
+
+:root {
+  --ink: #121a24; --ink2: #4a5664; --rule: #d5dbe2; --paper: #ffffff; --tint: #f3f6f9;
+  --accent: #0a8a9a; --accent-soft: #e3f4f6; --warn: #c2410c; --crit: #d8283a; --ok: #1a8f57;
+  --navy: #0c131c; --panel: #121b26; --cyan: #35e0f0;
+}
+@page { size: A4; margin: 16mm 16mm 18mm 16mm; }
+* { box-sizing: border-box; }
+html { font-family: 'Space Grotesk', system-ui, sans-serif; color: var(--ink); font-size: 9.5pt; line-height: 1.46; }
+body { margin: 0; }
+h1, h2, h3, h4 { line-height: 1.2; margin: 0; break-after: avoid; }
+h1 { font-size: 24pt; letter-spacing: -0.01em; text-transform: uppercase; }
+h2 { font-size: 15pt; margin: 0 0 3mm; padding-top: 1mm; }
+h3 { font-size: 11.8pt; margin: 5mm 0 2mm; color: var(--ink); }
+h4 { font-size: 10pt; margin: 4mm 0 1.5mm; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+p { margin: 0 0 2.6mm; }
+ul, ol { margin: 0 0 3mm; padding-left: 5.5mm; }
+li { margin-bottom: 1mm; }
+code, .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.86em; background: var(--tint); padding: 0.2mm 1.2mm; border: 1px solid var(--rule); }
+b, strong { font-weight: 700; }
+a { color: var(--accent); text-decoration: none; }
+
+.chapter { break-before: page; }
+.chapter > .kicker { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 9pt; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 1mm; }
+.lead { font-size: 11.6pt; color: var(--ink2); margin-bottom: 5mm; }
+
+/* cover */
+@page :first { margin: 0; }
+.cover { height: 297mm; width: 210mm; display: flex; flex-direction: column; justify-content: space-between; background: var(--navy); color: #eef3f8; margin: 0; padding: 26mm 22mm 20mm; }
+.cover .mark { display: flex; align-items: center; gap: 4mm; font-family: 'JetBrains Mono', monospace; font-weight: 700; letter-spacing: 0.12em; color: var(--cyan); font-size: 13pt; }
+.cover .mark svg { width: 11mm; height: 11mm; }
+.cover h1 { font-size: 40pt; line-height: 1.02; color: #fff; }
+.cover h1 span { color: var(--cyan); }
+.cover .sub { font-size: 14pt; color: #b3c0cf; max-width: 130mm; margin-top: 6mm; }
+.cover .meta { font-family: 'JetBrains Mono', monospace; font-size: 9pt; color: #7f8fa3; line-height: 1.8; }
+.cover .bar { height: 1.2mm; width: 40mm; background: var(--cyan); margin: 8mm 0; }
+
+/* contents */
+.toc { columns: 2; column-gap: 12mm; margin-top: 4mm; }
+.toc div { break-inside: avoid; display: flex; gap: 3mm; padding: 1.4mm 0; border-bottom: 1px solid var(--rule); }
+.toc b { font-family: 'JetBrains Mono', monospace; color: var(--accent); min-width: 8mm; }
+
+/* boxes */
+.box { border: 1px solid var(--rule); border-left: 1.4mm solid var(--accent); background: var(--accent-soft); padding: 3mm 4mm; margin: 3mm 0 4mm; break-inside: avoid; }
+.box.warn { border-left-color: var(--warn); background: #fff3ea; }
+.box.say { border-left-color: var(--ok); background: #eaf7f0; }
+.box > b:first-child { display: block; font-family: 'JetBrains Mono', monospace; font-size: 8.6pt; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 1mm; }
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 2mm 0 4mm; }
+.steps li { counter-increment: s; position: relative; padding: 1.2mm 0 1.2mm 9mm; border-bottom: 1px solid var(--rule); break-inside: avoid; margin: 0; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 1.6mm; width: 6mm; height: 6mm; background: var(--navy); color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 8.5pt; display: flex; align-items: center; justify-content: center; }
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 3.5mm; font-size: 8.5pt; }
+th { text-align: left; background: var(--navy); color: #eef3f8; font-family: 'JetBrains Mono', monospace; font-size: 8pt; letter-spacing: 0.08em; text-transform: uppercase; padding: 1.8mm 2.4mm; }
+td { padding: 1.1mm 2.2mm; border-bottom: 1px solid var(--rule); vertical-align: top; }
+tr { break-inside: avoid; }
+td:first-child { font-weight: 500; }
+.num { font-family: 'JetBrains Mono', monospace; }
+
+figure { margin: 3mm 0 5mm; break-inside: avoid; }
+figure img { display: block; border: 1px solid var(--rule); max-width: 100%; max-height: 92mm; width: auto; height: auto; margin: 0 auto; }
+figure.tall img { max-height: 150mm; }
+figure.narrow img { max-height: 120mm; }
+figure.short img { max-height: 62mm; }
+figcaption { font-size: 8.6pt; color: var(--ink2); margin-top: 1.4mm; font-family: 'JetBrains Mono', monospace; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+.cols > div { break-inside: avoid; }
+.tag { display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 7.8pt; font-weight: 700; letter-spacing: 0.08em; padding: 0.4mm 2mm; border: 1px solid var(--accent); color: var(--accent); text-transform: uppercase; vertical-align: middle; }
+.eq { font-family: 'JetBrains Mono', monospace; background: var(--tint); border: 1px solid var(--rule); padding: 2.4mm 3.6mm; margin: 2mm 0 3mm; font-size: 9pt; break-inside: avoid; white-space: pre-wrap; }
+svg text { font-family: 'Space Grotesk', sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <div class="mark">
+    <svg viewBox="0 0 40 40"><rect width="40" height="40" fill="#121b26"/><polygon points="14,8 30,8 26,32 10,32" fill="#35e0f0"/><rect x="27" y="27" width="6" height="6" fill="#ff4d5e"/></svg>
+    IGNISENSE
+  </div>
+  <div>
+    <h1>The complete<br>guide to <span>IgniSense</span></h1>
+    <div class="bar"></div>
+    <div class="sub">Smart Engine Health Diagnostic. What every feature does, how to use it step by step, how the physics and the diagnosis work, and how to run and present it yourself.</div>
+  </div>
+  <div class="meta">
+    TEAM REVORA<br>
+    PHYSICS-INFORMED ENGINE DIGITAL TWIN<br>
+    WRITTEN FOR THE TEAM: LEARN IT, RUN IT, REPLICATE THE DEMO<br>
+    ALL ENGINE VALUES ARE DEMO CALIBRATION, NOT MANUFACTURER DATA
+  </div>
+</section>
+
+<!-- ============ CONTENTS ============ -->
+<section class="chapter">
+  <div class="kicker">Contents</div>
+  <h2>What is in this guide</h2>
+  <p class="lead">Read chapters 1–3 to understand and run the app. Chapter 4 is the feature reference: every screen, with the exact clicks. Chapters 5–6 explain the engineering, so you can defend every number. Chapters 7–8 are for the presentation itself.</p>
+  <div class="toc">
+    <div><b>1</b><span>What IgniSense is</span></div>
+    <div><b>2</b><span>Run it on your computer</span></div>
+    <div><b>3</b><span>Find your way around</span></div>
+    <div><b>4</b><span>Feature guide, with steps</span></div>
+    <div><b>5</b><span>How the engine simulation works</span></div>
+    <div><b>6</b><span>How the diagnosis works</span></div>
+    <div><b>7</b><span>The five-minute demo</span></div>
+    <div><b>8</b><span>Replicate it tomorrow: checklist</span></div>
+    <div><b>9</b><span>Build it yourself: phases and project map</span></div>
+    <div><b>10</b><span>Key numbers cheat-sheet</span></div>
+    <div><b>11</b><span>Limitations to state honestly</span></div>
+    <div><b>12</b><span>Glossary</span></div>
+  </div>
+  <div class="box"><b>How to use this guide</b>Every "Steps" list is written so you can do it with the app open next to it. Anything marked <span class="tag">say</span> is a sentence you can use when presenting. Words in <code>this style</code> are buttons, files or values you will see on screen.</div>
+</section>
+
+<!-- ============ 1 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 1</div>
+  <h2>What IgniSense is</h2>
+  <p class="lead">A digital twin of a 2.0 L four-cylinder petrol engine that runs entirely in the browser. It shows how a monitoring system can tell that an engine is failing, which part is failing, and how long is left, using only sensor readings.</p>
+
+  <h3>The idea in one paragraph</h3>
+  <p>Most maintenance is done on a fixed schedule: it either wastes parts or misses failures. Condition monitoring watches the engine instead. IgniSense simulates two engines side by side. The <b>Plant</b> is the "real" engine, and it can develop hidden faults such as a wearing oil pump. The <b>Twin</b> is a healthy copy of the same physics that only sees the sensor readings and predicts what every sensor <i>should</i> read. The <b>Analytics</b> compare the two. The gap between what the sensors read and what the healthy Twin expects is the evidence, and everything else (fault name, severity, health score, remaining life) is built from that gap.</p>
+
+  <figure>
+  <svg viewBox="0 0 700 250" width="100%" role="img" aria-label="Architecture: Plant, sensors, telemetry, Twin and Analytics">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4a5664"/></marker></defs>
+    <rect x="10" y="20" width="170" height="90" fill="#121b26"/><text x="95" y="52" fill="#35e0f0" font-size="15" font-weight="700" text-anchor="middle">PLANT</text><text x="95" y="72" fill="#b3c0cf" font-size="11.5" text-anchor="middle">the "real" engine</text><text x="95" y="90" fill="#ff7b86" font-size="11.5" text-anchor="middle">hidden faults live here</text>
+    <rect x="215" y="20" width="130" height="90" fill="#f3f6f9" stroke="#d5dbe2"/><text x="280" y="52" fill="#121a24" font-size="15" font-weight="700" text-anchor="middle">SENSORS</text><text x="280" y="72" fill="#4a5664" font-size="11.5" text-anchor="middle">noise, bias, drift,</text><text x="280" y="88" fill="#4a5664" font-size="11.5" text-anchor="middle">spikes, dropouts</text>
+    <rect x="380" y="20" width="130" height="90" fill="#e3f4f6" stroke="#0a8a9a"/><text x="445" y="52" fill="#0a8a9a" font-size="15" font-weight="700" text-anchor="middle">TELEMETRY</text><text x="445" y="72" fill="#4a5664" font-size="11.5" text-anchor="middle">one common format</text><text x="445" y="88" fill="#4a5664" font-size="11.5" text-anchor="middle">for every source</text>
+    <rect x="545" y="10" width="145" height="52" fill="#f3f6f9" stroke="#d5dbe2"/><text x="617" y="32" fill="#121a24" font-size="14" font-weight="700" text-anchor="middle">TWIN</text><text x="617" y="50" fill="#4a5664" font-size="11" text-anchor="middle">healthy, blind to faults</text>
+    <rect x="545" y="70" width="145" height="52" fill="#f3f6f9" stroke="#d5dbe2"/><text x="617" y="92" fill="#121a24" font-size="14" font-weight="700" text-anchor="middle">ANALYTICS</text><text x="617" y="110" fill="#4a5664" font-size="11" text-anchor="middle">residuals to diagnosis</text>
+    <line x1="180" y1="65" x2="213" y2="65" stroke="#4a5664" stroke-width="1.6" marker-end="url(#a)"/>
+    <line x1="345" y1="65" x2="378" y2="65" stroke="#4a5664" stroke-width="1.6" marker-end="url(#a)"/>
+    <line x1="510" y1="45" x2="543" y2="36" stroke="#4a5664" stroke-width="1.6" marker-end="url(#a)"/>
+    <line x1="510" y1="80" x2="543" y2="94" stroke="#4a5664" stroke-width="1.6" marker-end="url(#a)"/>
+    <line x1="617" y1="62" x2="617" y2="70" stroke="#4a5664" stroke-width="1.6" marker-end="url(#a)"/>
+    <rect x="10" y="150" width="680" height="84" fill="#eaf7f0" stroke="#1a8f57"/>
+    <text x="24" y="174" fill="#1a8f57" font-size="12" font-weight="700">THE RULE THAT MAKES IT HONEST</text>
+    <text x="24" y="194" fill="#121a24" font-size="12">The analytics only ever receive telemetry. The fault state lives in the Plant, in a folder the analytics</text>
+    <text x="24" y="211" fill="#121a24" font-size="12">code is not allowed to import. A lint rule enforces it, so the diagnosis cannot read the answer.</text>
+  </svg>
+  <figcaption>Figure 1. The four parts. Anything that produces telemetry (the simulator, a CSV file, an ESP32, a car's OBD-II port) can feed the same Twin and analytics. All engine values are demo calibration, not real-engine data.</figcaption>
+  </figure>
+
+  <h3>What it can do</h3>
+  <table>
+    <tr><th style="width:32%">Capability</th><th>In plain words</th></tr>
+    <tr><td>Live digital twin</td><td>A 3D engine, moved by the same equations as the numbers, beside gauges that each show what a healthy engine would read.</td></tr>
+    <tr><td>Fault diagnosis</td><td>Names oil-pump wear, cooling degradation, bearing wear, alternator faults and a misfire in a specific cylinder, with the evidence listed.</td></tr>
+    <tr><td>Early warning</td><td>A statistical detector (CUSUM) notices a small persistent drift before any fixed limit trips.</td></tr>
+    <tr><td>Sensor-fault detection</td><td>Proves from physics that a reading is impossible (for example the coolant "jumping" 25 °C in a tenth of a second) and blames the sensor, not the engine.</td></tr>
+    <tr><td>Remaining useful life</td><td>A straight-line trend with an uncertainty band, shown only when the trend is statistically real.</td></tr>
+    <tr><td>Calculations</td><td>Click any gauge value to see the equation behind it with today's numbers substituted in.</td></tr>
+    <tr><td>Blind test, real data</td><td>A hidden fault case is selected and the monitor must name it. Record and replay CSV, ESP32, OBD-II and phone sensors all use the same analytics.</td></tr>
+  </table>
+
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 2</div>
+  <h2>Run it on your computer</h2>
+  <p class="lead">There is no server, no account and no internet needed once it is installed. Everything runs in the browser on your own machine.</p>
+
+  <h3>What you need</h3>
+  <ul>
+    <li><b>Node.js 20.19 or newer</b>, the LTS version from nodejs.org. Check it by opening a terminal and typing <code>node --version</code>.</li>
+    <li>A recent <b>Chrome, Edge or Firefox</b>. Web Serial (ESP32 / OBD-II) works in Chrome and Edge only.</li>
+    <li><b>Internet, once</b>, for the first install. After that it runs offline.</li>
+  </ul>
+
+  <h3>Easiest way: double-click</h3>
+  <ol class="steps">
+    <li>Download or copy the project folder to the computer and unzip it.</li>
+    <li>On Windows, double-click <code>start-ignisense.bat</code>. On macOS or Linux, open a terminal in the folder and run <code>sh start-ignisense.sh</code>.</li>
+    <li>The first run installs the dependencies. <b>Keep the window open until it finishes</b> (a minute or two, needs internet). Later runs skip this and take a few seconds.</li>
+    <li>It builds the app and opens <code>http://localhost:4173</code> in your browser.</li>
+    <li>To stop it, close the window (or press <code>Ctrl+C</code>).</li>
+  </ol>
+
+  <h3>From a terminal</h3>
+  <table>
+    <tr><th style="width:38%">Command</th><th>What it does</th></tr>
+    <tr><td><code>npm install</code></td><td>Once, needs internet. Downloads everything the app needs.</td></tr>
+    <tr><td><code>npm run demo</code></td><td>Builds the app and opens it at <span class="mono">localhost:4173</span>. Use this on the presentation laptop. It works offline.</td></tr>
+    <tr><td><code>npm run dev</code></td><td>Development mode at <span class="mono">localhost:5173</span> with live reload. Use it when you are changing code.</td></tr>
+    <tr><td><code>npm test</code></td><td>Runs all 363 tests (physics, analytics, scenarios).</td></tr>
+    <tr><td><code>npm run lint</code></td><td>Style and architecture checks, including the rule that keeps the analytics blind.</td></tr>
+  </table>
+
+  <h3>If something goes wrong</h3>
+  <table>
+    <tr><th style="width:36%">Problem</th><th>Fix</th></tr>
+    <tr><td><code>'tsc' is not recognized</code></td><td>A previous install did not finish. Delete the <code>node_modules</code> folder and run <code>start-ignisense.bat</code> again. Keep the window open until the install ends. (The launcher now repairs this by itself.)</td></tr>
+    <tr><td>"Node.js is not installed"</td><td>Install Node from nodejs.org, then <b>close every window and open a new one</b>. A window opened before the install does not see Node.</td></tr>
+    <tr><td>"Port 4173 is in use"</td><td>IgniSense is probably already running in another window. Close it, or open <span class="mono">localhost:4173</span> directly.</td></tr>
+    <tr><td>3D view is slow</td><td>The fps number is in the 3D view's top-right corner. The scene lowers its own effects under 28 fps. As a last resort, add <code>?no3d</code> to the address (<span class="mono">localhost:4173/?no3d</span>): everything works, without the 3D engine.</td></tr>
+  </table>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 3</div>
+  <h2>Find your way around</h2>
+  <p class="lead">One header, seven pages, and one drawer for controlling the simulation.</p>
+
+  <figure class="short">
+    <img src="img/live-off.png" alt="Live Twin page with the engine off">
+    <figcaption>Figure 2. The Live Twin page with the engine off. The header (top) has the seven pages, the engine state, the simulated clock with the time-warp, and the Test bench button.</figcaption>
+  </figure>
+
+  <table>
+    <tr><th style="width:20%">Page</th><th>What it is for</th></tr>
+    <tr><td>Live Twin</td><td>The home view: 3D engine, health, gauges with Twin markers, the diagnosis card, alerts, cause-and-effect graph.</td></tr>
+    <tr><td>Trends</td><td>Measured vs Twin over time, fault and alert markers, and the two statistical detectors (D² and CUSUM).</td></tr>
+    <tr><td>Vibration</td><td>The vibration spectrum, the misfire polar plot that points at the failing cylinder, and crank-speed ripple.</td></tr>
+    <tr><td>Math</td><td>Every equation the app uses, with live numbers substituted.</td></tr>
+    <tr><td>Validation</td><td>Hand-calculated values beside the model's, computed live. All should be green.</td></tr>
+    <tr><td>Report</td><td>A one-page maintenance report you can print or save as PDF.</td></tr>
+    <tr><td>Data</td><td>Raw telemetry beside the Twin, plus recording, CSV replay and hardware connections.</td></tr>
+  </table>
+
+  <h3>The header, left to right</h3>
+  <ul>
+    <li><b>Page tabs.</b> Click to switch. The address changes too (<span class="mono">#trends</span>, <span class="mono">#math</span>...), so any page can be linked.</li>
+    <li><b>Engine state badge.</b> OFF, STARTING, WARMUP, RUNNING (STEADY or TRANSIENT), or SHUTDOWN.</li>
+    <li><b>Clock.</b> <span class="mono">T+ hh:mm:ss · 60×</span> is <i>simulated</i> time and the time-warp. At 60×, one real second is one simulated minute, so a half-hour warm-up takes about half a minute.</li>
+    <li><b>Source badge.</b> Appears as <span class="mono">REPLAY</span> or <span class="mono">LIVE</span> whenever something other than the simulator feeds the monitor.</li>
+    <li><b>Test bench.</b> Opens the control drawer (next chapter).</li>
+  </ul>
+
+  <div class="box"><b>Colours mean something</b>Green = healthy, yellow = watch, orange = warning, red = critical, grey = sensor invalid. These are reserved for engine and sensor <i>state</i>. Cyan is the brand and interactive colour. The <b>white</b> tick or pointer is always the Twin's expected value.</div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 4</div>
+  <h2>Feature guide, with steps</h2>
+  <p class="lead">Each feature has the same layout: what it is, the steps to use it, what to look for, and (where useful) how it works underneath.</p>
+
+  <h3>4.1 &nbsp;The Test bench (control everything from here)</h3>
+  <p>Open it with <code>Test bench</code> in the header or <code>Open test bench</code> on the Live Twin page. It slides in from the left. <b>Buttons that do something</b> (Inject fault, Repair, Start/Stop engine, Run/Stop scenario) close the drawer so you can watch the result. <b>Settings</b> (sliders, warp, fan) leave it open. <code>Esc</code> or <code>Close ✕</code> also closes it.</p>
+  <figure class="narrow">
+    <img src="img/bench.png" alt="The test bench drawer">
+    <figcaption>Figure 3. The Test bench drawer. Top to bottom: Scenario, Engine, Blind test, Fault injection.</figcaption>
+  </figure>
+  <table>
+    <tr><th style="width:24%">Section / control</th><th>What it does</th></tr>
+    <tr><td>Scenario list + <code>Run scenario</code></td><td>Plays a scripted story on the simulated clock with a fixed seed, so it is identical every time. Four scenarios: Full walkthrough, Cold start to oil-pump wear, Overheat, Urban stop-and-go (see 4.3).</td></tr>
+    <tr><td><code>Start engine</code> / <code>Stop engine</code></td><td>Cranks the engine (STARTING, then WARMUP, then RUNNING) or shuts it down.</td></tr>
+    <tr><td>Target RPM</td><td>800 (idle) to 7,000. Redline is at 6,000. Default 3,000.</td></tr>
+    <tr><td>Load (N·m)</td><td>Brake torque applied to the engine, 0 to peak torque (190). Default 80. The app converts it to a load fraction L = torque ÷ the most the engine can make at that speed.</td></tr>
+    <tr><td>Ambient (°C)</td><td>Outside air temperature, −10 to 50. Default 30.</td></tr>
+    <tr><td>Radiator fan</td><td>AUTO (switches on above 98 °C with hysteresis), ON, or OFF.</td></tr>
+    <tr><td>Time-warp</td><td>1×, 10× or 60×. Use 60× to skip warm-up, 10× to watch a fault develop, 1× to talk through something.</td></tr>
+    <tr><td>Start blind test</td><td>See 4.8.</td></tr>
+    <tr><td>Fault / Severity / Onset</td><td>See 4.2.</td></tr>
+    <tr><td><code>Inject fault</code> / <code>Repair</code></td><td>Applies the chosen fault, or removes all faults.</td></tr>
+  </table>
+
+  <h3>4.2 &nbsp;Injecting a fault</h3>
+  <p>A fault is applied to the hidden Plant. Nothing on screen tells the monitor which one you chose: it has to find it in the sensors.</p>
+  <ol class="steps">
+    <li>Start the engine (<code>Start engine</code>) and let it warm up. Set time-warp to <code>60×</code> to speed this up. Wait until the badge says <span class="mono">RUNNING · STEADY</span>.</li>
+    <li>Open the Test bench. Under <b>Fault injection</b>, choose a <b>Fault</b> from the list.</li>
+    <li>Set the <b>Severity</b> (0 to 1). Higher is worse. The small note underneath tells you the resulting health factor (for example severity 0.60 leaves oil-pump health at 0.55).</li>
+    <li>Choose the <b>Onset</b>: <code>GRADUAL</code> ramps in over 120 simulated seconds, <code>INSTANT</code> is immediate, <code>PROGRESSIVE</code> keeps the fault growing (faster under load, heat and speed) so the remaining-life estimate has a trend to follow.</li>
+    <li>Click <code>Inject fault</code>. The drawer closes. Watch the Live Twin page.</li>
+    <li>To clear it, open the bench and click <code>Repair</code>. Alerts clear after their hold time (about 20 simulated seconds per level).</li>
+  </ol>
+  <table>
+    <tr><th style="width:24%">Fault</th><th>What it does to the engine</th><th style="width:34%">What the monitor sees</th></tr>
+    <tr><td>Oil-pump wear</td><td>Pump health = 1 − 0.75 × severity. Oil pressure drops, even at idle.</td><td>Pressure far below the Twin's expectation; lubrication subsystem falls; CUSUM warns early.</td></tr>
+    <tr><td>Cooling degradation</td><td>Radiator loses capacity (health = 1 − 0.8 × severity). Coolant runs hot under load.</td><td>Coolant residual and its rate of change; thermal subsystem falls.</td></tr>
+    <tr><td>Cylinder misfire</td><td>Choose <code>C1</code>–<code>C4</code>. That cylinder's combustion health = 1 − severity (1 = dead cylinder).</td><td>Half-order line in the crank-speed spectrum; the polar plot names the cylinder.</td></tr>
+    <tr><td>Bearing wear</td><td>Lowers oil pressure and loosens the crank: more 1× vibration and knock.</td><td>Low pressure plus a 1× rise plus impacts is named "bearing wear" inside the lubrication diagnosis.</td></tr>
+    <tr><td>Alternator fault</td><td>Charging voltage sags.</td><td>Bus-voltage residual; electrical subsystem falls.</td></tr>
+    <tr><td>Sensor fault</td><td>Leaves the engine healthy and breaks one <i>sensor</i>: choose COOLANT, OIL T, PRESS or VOLT, and SPIKE, STUCK, DRIFT or DEAD.</td><td>The monitor proves the reading is impossible and reports a sensor fault, not an engine fault.</td></tr>
+  </table>
+
+  <h3>4.3 &nbsp;Scenarios (one-button stories)</h3>
+  <table>
+    <tr><th style="width:26%">Scenario</th><th>What happens</th></tr>
+    <tr><td>Full walkthrough (≈ 5 min)</td><td>The whole demo on one button: cold start, oil pump caught early by CUSUM, remaining life, cylinder 3 misfire named by its phase, then a coolant sensor spike proven impossible. Each step waits for what the monitor concluded before moving on.</td></tr>
+    <tr><td>Cold start to oil-pump wear</td><td>Cold start at 20 °C, time-warped warm-up, then the oil pump wears out. About a minute of real time.</td></tr>
+    <tr><td>Overheat</td><td>A warm engine at 3,000 rpm and 80 N·m in 38 °C heat while the radiator loses capacity.</td></tr>
+    <tr><td>Hot city</td><td>Stop-and-go at 40 °C ambient: 60 s of driving, 60 s of idling, four cycles, then the radiator starts to clog.</td></tr>
+  </table>
+  <ol class="steps">
+    <li>Live Twin: click <code>Run oil-pump scenario</code> for the quickest story. Or open the Test bench, pick a scenario card, click <code>Run scenario</code>.</li>
+    <li>A narration strip appears under the page title: step dots, a title and a caption for what is happening.</li>
+    <li>Use <code>Pause</code> on the strip to talk over it, <code>Resume</code> to continue, <code>Restart</code> to replay, <code>Stop</code> to end.</li>
+    <li>Moving any control mid-run takes over from the script.</li>
+  </ol>
+  <div class="box"><b>Why it is identical every time</b>All randomness goes through one seeded random-number generator, and scenarios run on the <i>simulated</i> clock, not the wall clock. A tested guarantee: three runs at different speeds give the same telemetry, step times and alerts.</div>
+</section>
+
+<section>
+  <h3>4.4 &nbsp;Live Twin page</h3>
+  <figure>
+    <img src="img/live-running.png" alt="Live Twin with the engine running">
+    <figcaption>Figure 4. The engine running at about 3,000 rpm. The 3D engine on the left, the health ring on the right, subsystem health underneath.</figcaption>
+  </figure>
+
+  <h4>The 3D engine</h4>
+  <ul>
+    <li>Built from code, not a downloaded model. The piston positions come from the slider-crank equation, so TDC and BDC line up with crank angle 0° and 180°.</li>
+    <li>It is slowed 100× so you can see the motion. The label <span class="mono">DISPLAY SLOWED 100×</span> and the readout <span class="mono">engine 3,000 rpm · shown at 30 rpm</span> say so honestly.</li>
+    <li>Cylinders flash in firing order 1-3-4-2. A cylinder that the monitor has diagnosed as misfiring stops flashing. The block shakes at the real second-order vibration.</li>
+    <li>The block turns from dark to cyan as the coolant warms. The oil gallery glows with pressure. A faulty subsystem's parts pulse in the status colour.</li>
+  </ul>
+  <p><b>Steps:</b></p>
+  <ol class="steps">
+    <li>Click <code>FRONT</code>, <code>CUTAWAY</code>, <code>TOP</code> or <code>EXPLODE</code> (top-left of the view) for a camera preset. Drag to orbit, scroll to zoom.</li>
+    <li>Click a diamond marker (oil pump, radiator) or hover it: a label slides out with that part's health.</li>
+    <li>Click the label to open a side panel with that part's sensors: measured, expected and residual. <code>View calculation</code> opens the equation for it.</li>
+    <li>Read the frame rate at the top of the view (<span class="mono">60 fps · 71 meshes</span>). <span class="mono">reduced effects</span> means it lowered its own quality to stay smooth.</li>
+  </ol>
+
+  <h4>The health ring and subsystems</h4>
+  <p>The ring shows overall health from 0 to 100, coloured by the overall alert level (not by score bands). Under the number: the engine state or the alert class, and <b>"limited by …"</b> naming the subsystem that drives a WARNING or CRITICAL level (the overall number is a weighted average, so it can look mild beside one failing subsystem), the name of the diagnosed fault ("No fault evidence" when healthy), and a <b>remaining-life</b> line when a significant trend exists (otherwise it says what the statistics layer is doing, for example "learning the healthy baseline").</p>
+  <p>Below are six subsystems, each 0 to 100, with their weights: Lubrication 0.25, Thermal 0.25, Mechanical vibration 0.20, Combustion 0.15, Electrical 0.10, Sensor integrity 0.05. A dash means it is not monitored while the engine is off.</p>
+</section>
+
+<section>
+  <h4>Signals: the gauges</h4>
+  <figure>
+    <img src="img/live-signals.png" alt="The signals section: tachometer and six bar gauges">
+    <figcaption>Figure 5. Signals. The tachometer and six bar gauges. The white tick is the Twin's expected value.</figcaption>
+  </figure>
+  <ul>
+    <li><b>Engine speed</b> is a car-style tachometer (0 to 7 in thousands of rpm, redline from 6,000). The white pointer on the rim is the speed the Twin expects.</li>
+    <li><b>Engine load, Coolant, Oil temp, Oil pressure, Voltage, Vibration RMS</b> are bar gauges. The white tick and <span class="mono">TWIN</span> value show what a healthy engine would read <i>right now</i>, at the same speed, load and ambient.</li>
+    <li><span class="mono">Δ</span> is the residual (measured − expected). It turns coloured once it leaves the normal noise band (more than 2 σ).</li>
+    <li>The coloured strip under a bar marks warning and critical zones. The small square in the corner is the sensor quality: green valid, amber degraded, red failed, grey unavailable.</li>
+    <li>A dead sensor shows <span class="mono">— —</span> with a hatched track. It is never shown as 0.</li>
+  </ul>
+  <p><b>Steps:</b> click any gauge's number, or its <span class="mono"><i>ƒ(x)</i></span> mark, to open its calculation (4.7).</p>
+
+  <h4>Diagnosis card and alerts</h4>
+  <figure>
+    <img src="img/live-diagnosis.png" alt="Diagnosis card and alert list during an oil-pump fault">
+    <figcaption>Figure 6. During an oil-pump fault: the explanation card (left) and the alert list, newest first (right).</figcaption>
+  </figure>
+  <ul>
+    <li><b>Probable fault</b> with a severity badge and an <b>evidence score</b>. It is deliberately called a "diagnostic evidence score", never "confidence %". Classes: under 0.30 weak, 0.30–0.55 possible, 0.55–0.75 probable, over 0.75 strong.</li>
+    <li><b>Why the system thinks this</b> is a checklist of named symptoms, each with its status colour.</li>
+    <li><b>Recommended action</b>, then <b>Model status</b> (physics rules, anomaly model, remaining life) and <b>Confidence in this output</b> (evidence strength, data quality, model agreement, uncertainty).</li>
+    <li><b>Alerts</b> are INFO, WATCH, WARNING or CRITICAL. Each carries the time, the subsystem, measured vs expected, the residual, how long it has persisted and whether a rule or a statistic raised it.</li>
+  </ul>
+
+  <h4>Cause and effect graph</h4>
+  <p>At the bottom of the page a graph links each fault the monitor can name to its physical effect and to the sensor that sees it. Nodes light up from the live symptom risks, so you can trace a reading back to its cause while the evidence builds.</p>
+  <figure>
+    <img src="img/live-cause.png" alt="Cause and effect graph">
+    <figcaption>Figure 7. Cause and effect graph.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h3>4.5 &nbsp;Trends</h3>
+  <p>Charts of measured against expected over <i>simulated</i> time (they scroll as the clock runs).</p>
+  <figure>
+    <img src="img/trends-fault.png" alt="Trends page after an oil-pump fault">
+    <figcaption>Figure 8. Trends after an oil-pump fault: the measured line drops away from the Twin, violet lines mark the injection, diamonds mark alerts.</figcaption>
+  </figure>
+  <ul>
+    <li><b>Charts:</b> oil pressure, coolant, oil temperature, bus voltage, and overall health. The solid line is measured, the dashed line is the Twin, the shaded band is the residual.</li>
+    <li><b>Markers:</b> violet vertical lines are fault injections; diamonds are alerts.</li>
+    <li><b>Statistics:</b> <b>D²</b> (Mahalanobis distance) flags an unusual <i>combination</i> of residuals against its 99 % limit (15.09). <b>CUSUM</b> accumulates small persistent shifts and crosses its limit of 5 well before a fixed threshold trips.</li>
+  </ul>
+  <p><b>Steps:</b> inject a fault (4.2) and open Trends. Watch CUSUM on oil pressure cross 5 <i>before</i> the rule-based alert appears: that is the early warning.</p>
+
+  <h3>4.6 &nbsp;Vibration and misfire</h3>
+  <figure class="tall">
+    <img src="img/vibration-misfire.png" alt="Vibration page during a cylinder 3 misfire">
+    <figcaption>Figure 9. Vibration page during a cylinder 3 misfire: the half-order line, the polar plot and the crank-speed ripple.</figcaption>
+  </figure>
+  <ul>
+    <li><b>Metrics:</b> vibration RMS, peak, crest factor, kurtosis, and the crank-speed irregularity.</li>
+    <li><b>Order spectrum:</b> vibration strength against <i>engine order</i> (multiples of crank speed), with cursors at 0.5×, 1× and 2×. A four-cylinder engine shakes at 2×. A misfire adds a 0.5× line.</li>
+    <li><b>Misfire polar plot:</b> a dot at the phase of the 0.5× component. It falls in the sector of the misfiring cylinder: C1 +45°, C2 +135°, C3 −45°, C4 −135°. The size of the dot tells how much torque is missing.</li>
+    <li><b>Waveforms:</b> the accelerometer signal and the crank-speed ripple over 16 revolutions.</li>
+    <li><b>Device accelerometer:</b> a panel that runs a phone's motion sensor through the same FFT (needs a phone, https or localhost).</li>
+  </ul>
+  <p><b>Steps:</b></p>
+  <ol class="steps">
+    <li>Run the engine at about 3,000 rpm. Open Vibration and note the clean 2× line.</li>
+    <li>Test bench, Fault: <code>Cylinder misfire</code>, Cylinder: <code>C3</code>, click <code>Inject fault</code>.</li>
+    <li>Wait a few seconds. A 0.5× line appears, the polar dot jumps to the C3 sector (−45°), and the diagnosis card names <b>Cylinder 3 misfire</b>.</li>
+    <li>Click <code>Sound on</code> (Live Twin): one exhaust pulse in four goes missing, and the engine audibly stumbles.</li>
+  </ol>
+</section>
+
+<section>
+  <h3>4.7 &nbsp;Calculations</h3>
+  <p>The app can show its own working. Every equation is registered with its symbols, units and a template, so the calculation view can substitute today's live numbers into it.</p>
+  <figure>
+    <img src="img/math-drawer.png" alt="The math drawer for oil pressure">
+    <figcaption>Figure 10. The math drawer for oil pressure: the chain of equations with today's numbers, and the check that the result equals the gauge.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>On Live Twin, click a gauge's number (for example oil pressure). A drawer opens from the right.</li>
+    <li>Read the <b>chain of equations</b>. Numbers are colour-tagged: measured, Twin state, healthy assumption, inferred, or constant.</li>
+    <li>Look at the <b>checks against the screen</b> table at the bottom. Each row shows the equation's result beside the gauge value and a ✓ <span class="mono">EQUAL</span>.</li>
+    <li>Flip the switch at the top (<span class="mono">Live · updates 20× a second</span>) to <span class="mono">Holding these numbers</span>. It freezes the numbers so you can read them out while the engine runs.</li>
+    <li>For the full list, open the <b>Math</b> page: pick a gauge to see its live chain, and scroll for all 28 registered equations with their symbols and units.</li>
+  </ol>
+  <figure class="tall">
+    <img src="img/math-page.png" alt="The Math page">
+    <figcaption>Figure 11. The Math page.</figcaption>
+  </figure>
+  <div class="box say"><b>Say</b>Every number on this screen has an equation behind it, and you can click it. We test that the numbers substituted into the equation equal the gauge on the screen, in six different engine states.</div>
+
+  <h3>4.8 &nbsp;Blind test</h3>
+  <p>Proof that the monitor is not reading the injected fault. A hidden fault is chosen inside the simulation worker; the page only ever learns the card's position, never its content.</p>
+  <figure>
+    <img src="img/blind.png" alt="The blind test bar with sealed cases">
+    <figcaption>Figure 12. The blind test: nine sealed cases, shuffled by the worker.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>Open the Test bench and click <code>Start blind test</code>. The drawer closes and the Live Twin page shows nine sealed cases.</li>
+    <li>Ask a visitor to select a case. Nobody, including you, knows what is on it.</li>
+    <li>The engine runs at part load and 10× warp. Watch the diagnosis card: within seconds to about a minute the monitor names a fault.</li>
+    <li>Press <code>Reveal the card</code>. The strip shows what was on the card and whether the monitor was <span class="mono">✓ CORRECT</span>.</li>
+    <li>Click <code>New blind test</code> for another round.</li>
+  </ol>
+  <p>The nine cards are: oil-pump wear, cooling degradation, a misfire in each of the four cylinders, worn crank bearings, an alternator losing output, and a stuck coolant sensor. Every card is named correctly in the tests.</p>
+
+  <h3>4.9 &nbsp;Validation</h3>
+  <figure>
+    <img src="img/validation.png" alt="The Validation page">
+    <figcaption>Figure 13. Validation: 26 live checks, each a hand-calculated value against the model.</figcaption>
+  </figure>
+  <p>The Validation page computes the physics live in your browser and compares each result with a value worked out by hand. Examples: angular speed 314.16 rad/s, F₂ = 2,517 N at 3,000 rpm, cold-start oil pressure 2.54 bar, the 4/3 misfire torque ratio, the χ² limit 15.09, and the health example 69.4. All rows should read PASS. It is your answer to "how do you know the model is right?"</p>
+</section>
+
+<section>
+  <h3>4.10 &nbsp;Maintenance report</h3>
+  <figure>
+    <img src="img/report.png" alt="The maintenance report page">
+    <figcaption>Figure 14. The report: a frozen snapshot of the live monitor.</figcaption>
+  </figure>
+  <ol class="steps">
+    <li>Run a fault so there is something to report.</li>
+    <li>Open <b>Report</b>. It shows <i>"IgniSense maintenance report · Team Revora"</i>: the verdict, the evidence, the recommended action, the remaining-life band, subsystem bars, health history, model status and confidence, exposure counters and recent alerts.</li>
+    <li>Click <code>Refresh from engine</code> to take a new snapshot (it does not update by itself).</li>
+    <li>Click <code>Print / save PDF</code>. Choose "Save as PDF" as the printer. It prints on exactly one A4 page and the file is named <span class="mono">ignisense-report-&lt;time&gt;</span>.</li>
+  </ol>
+
+  <h3>4.11 &nbsp;Engine sound</h3>
+  <p>The sound is built from what the monitor <i>measures</i>, not from the hidden fault. Each cylinder fires an exhaust pressure pulse as loud as its measured power stroke, in the order 1-3-4-2, at the <b>real</b> engine speed (the 3D view is slowed, the sound is not). The pulses pass through a small model of an exhaust system (a pipe resonance, a muffler boost, and saturation that gets rougher under load).</p>
+  <ol class="steps">
+    <li>On Live Twin click <code>Sound off</code> (it becomes <code>Sound on</code>). The click is required by the browser.</li>
+    <li>Start the engine. Change the target RPM and load: pitch follows speed smoothly, and it gets louder and brighter under load.</li>
+    <li>Inject a cylinder misfire: one pulse in four disappears and the engine stumbles.</li>
+  </ol>
+
+  <h3>4.12 &nbsp;Data &amp; sources: recording, replay and real hardware</h3>
+  <figure>
+    <img src="img/debug.png" alt="The Data &amp; sources page">
+    <figcaption>Figure 15. Data &amp; sources: raw telemetry beside the Twin's expectation, and the data-source controls.</figcaption>
+  </figure>
+  <table>
+    <tr><th style="width:30%">Button</th><th>What it does</th></tr>
+    <tr><td><code>Download recording</code></td><td>Saves the last 30 simulated minutes as a CSV file (the same telemetry the analytics see).</td></tr>
+    <tr><td><code>Replay a CSV</code></td><td>Loads a recording. The header shows <span class="mono">REPLAY</span>. The same Twin and analytics process it, and replaying a recorded pump-fault run reproduces the diagnosis. It stops at the end of the file.</td></tr>
+    <tr><td><code>Connect ESP32</code></td><td>Web Serial over USB, JSON lines from a microcontroller with real sensors. Chrome or Edge only.</td></tr>
+    <tr><td><code>Connect OBD-II</code></td><td>A USB ELM327 adapter on a real car: engine speed, load, coolant, intake temperature, module voltage. The oil channels are simply not fitted, and that raises no false alarm.</td></tr>
+    <tr><td><code>Back to simulator</code></td><td>Returns to the built-in Plant.</td></tr>
+    <tr><td><code>Pause</code> / <code>Reset</code></td><td><code>Pause</code> freezes the simulated clock; <code>Reset</code> restarts the simulation from a cold engine with the same seed.</td></tr>
+  </table>
+  <div class="box warn"><b>Not yet tested</b>The replay path is tested end to end. The ESP32 and OBD-II paths are tested against parsers and simulated streams, but not yet against real hardware. Say so if asked.</div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 5</div>
+  <h2>How the engine simulation works</h2>
+  <p class="lead">Two clocks run inside a Web Worker: a slow physics loop for temperatures and pressure, and a fast crank-angle model for vibration and misfire.</p>
+
+  <h3>The engine and its numbers</h3>
+  <table>
+    <tr><th style="width:36%">Parameter</th><th>Value</th></tr>
+    <tr><td>Bore × stroke</td><td>86 × 86 mm, crank radius r = 43 mm</td></tr>
+    <tr><td>Con-rod length l; ratio λ = r/l</td><td>145 mm; 0.297</td></tr>
+    <tr><td>Displacement</td><td>1,998 cc</td></tr>
+    <tr><td>Firing order; crank throws</td><td>1-3-4-2; 0°, 180°, 180°, 0°</td></tr>
+    <tr><td>Idle / redline</td><td>800 / 6,000 rpm</td></tr>
+    <tr><td>Peak torque curve</td><td>T_max(N) = 190 [1 − 0.53 ((N − 4000)/4000)²] N·m</td></tr>
+    <tr><td>Load</td><td>L = T_brake / T_max(N)</td></tr>
+  </table>
+
+  <h3>The slow loop (20 steps per simulated second)</h3>
+  <ul>
+    <li><b>Friction and energy:</b> friction pressure FMEP = (97 + 15n + 5n²) · (1 + max(0, 90 − T_oil)/70) kPa with n = rpm/1000. Cold oil is thick, so friction is higher when cold. Indicated efficiency is η = 0.38 (0.70 + 0.30 L). Fuel power = brake power ÷ efficiency.</li>
+    <li><b>Coolant temperature:</b> C_th dT/dt = (heat into coolant) − UA · (T − T_ambient). Heat into coolant is (0.34 − 0.12 L) of fuel power. The radiator UA depends on a thermostat that opens linearly from 82 to 95 °C, and on the fan, which switches on above 98 °C with hysteresis. C_th = 100 kJ/K.</li>
+    <li><b>Oil temperature:</b> a second heat balance, warmed by friction and by the coolant, cooled by the air.</li>
+    <li><b>Oil pressure:</b> min[ P_relief, (P_idle + K_N (N − N_idle)) · μ_rel^0.5 · H_pump / (1 + K_c W_b) ] with viscosity μ_rel = e^(−0.015 (T_oil − 90)). Cold and thick gives 2.54 bar at idle; hot idle gives 1.39 bar.</li>
+    <li><b>Battery voltage:</b> V = V_bat + H_alt · g(N) · (V_reg − V_bat) − ΔV_load, with g(N) = 1 − e^(−N/600).</li>
+  </ul>
+  <div class="box"><b>Health factors</b>A fault is a number between 0 and 1 that multiplies part of the physics (pump health, cooling health, cylinder combustion health). Every health factor is 1 in a healthy engine. The <b>Twin</b> runs the <i>same</i> functions with every health factor forced to 1, driven only by the <i>measured</i> speed, load and ambient temperature.</div>
+
+  <h3>The sensor model</h3>
+  <div class="eq">reading = true value + bias + drift(t) + noise
+plus: dropout (reads null, never 0 or NaN), stuck, spike</div>
+  <p>Noise levels (one standard deviation): rpm 5, load 0.004, ambient 0.1 °C, coolant 0.2 °C, oil temperature 0.3 °C, oil pressure 0.03 bar, bus voltage 0.03 V.</p>
+
+  <h3>The fast loop: one crank angle drives everything</h3>
+  <ul>
+    <li>One 720° cycle is integrated in 0.5° steps. Each cylinder makes a <b>half-sine torque pulse</b> during its power stroke; the four pulses are offset by 180° in the order 1-3-4-2.</li>
+    <li>The crank speed changes as torque in exceeds the load (energy form: the kinetic energy changes by the area between the torque and the load). A governor holds the mean speed.</li>
+    <li>That one model produces the <b>crank-speed ripple</b> (about 11 rpm peak to peak, healthy, at 3,000 rpm / 80 N·m), the <b>vibration signal</b> (second-order force F₂ = 4 m r ω² λ cos 2θ plus combustion orders, 1× imbalance, knock impacts and noise), and what the 3D pistons do (slider-crank equation).</li>
+    <li>A window of 16 revolutions is sampled at 512 points per revolution (8,192 points), which is what the FFT analyses. Sampling per revolution, not per second, is called <b>order tracking</b>: a fault at "0.5×" stays at 0.5× at any speed.</li>
+  </ul>
+
+  <h3>Why the same run is always identical</h3>
+  <p>Every random number comes from one seeded generator (<code>src/lib/rng.ts</code>). The scenarios run on the simulated clock. So the oil-pump and walkthrough scenarios play the same way on every computer.</p>
+</section>
+
+<!-- ============ 6 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 6</div>
+  <h2>How the diagnosis works</h2>
+  <p class="lead">From raw readings to a named fault, in eight small steps. Each is simple enough to explain on a whiteboard.</p>
+
+  <ol class="steps">
+    <li><b>Residual.</b> r = measured − expected. Normalised: z = r / σ, where σ is that sensor's noise. |z| under 2 is noise; well above 2 is a real gap.</li>
+    <li><b>Sensor sanity first.</b> Before any reading is trusted it is checked: is the rate of change physically possible (coolant cannot heat faster than <b>0.81 K/s</b>), is it stuck, has it dropped out, does the oil temperature follow the coolant? A reading that fails is left out of the diagnosis and reported as a sensor fault.</li>
+    <li><b>Risk.</b> Each residual becomes a 0-to-1 risk with a warning and a critical value: R = clip((x − W)/(C − W), 0, 1).</li>
+    <li><b>Fault evidence score.</b> For each fault, S = Σ(weight × risk) / Σ(weight). Weights, for example lubrication: 0.35 low oil pressure, 0.20 pressure residual, 0.20 oil temperature, 0.15 vibration, 0.10 pressure decay. The highest score names the fault.</li>
+    <li><b>Health.</b> Each subsystem gets 0–100; overall H = 100 (1 − Σ w R / Σ w). Critical overrides: oil-pressure risk above 0.95 goes straight to CRITICAL.</li>
+    <li><b>Alert hysteresis.</b> To avoid flicker: NORMAL to WATCH needs risk above 0.30 for 5 s; WATCH to WARNING above 0.55 for 10 s; WARNING to CRITICAL above 0.85 for 5 s; WARNING clears only below 0.40 for 20 s (all in simulated seconds).</li>
+    <li><b>Statistics.</b> CUSUM: S = max(0, S + z − 0.5), alarm at 5. A residual that sits at z = 1 never crosses a 3 σ limit, yet CUSUM passes 5 in about 11 samples. D²: the distance of all five residuals together from the healthy baseline learned in the first 60 s, against the χ² 99 % limit of 15.09.</li>
+    <li><b>Remaining life.</b> Fit a straight line to the recent health of the worst subsystem. RUL = (H − H_fail) / |slope|, with a band from the slope's standard error (±2 s_b). It is shown <b>only</b> if the slope is negative and significant, and it is in simulated time at the present load.</li>
+  </ol>
+
+  <h3>Naming the misfiring cylinder</h3>
+  <p>A misfire removes one power pulse every two revolutions. That repeats at <b>half the crank frequency</b> (order 0.5). The cylinders fire 180° of crank apart, which is 90° of phase at half order, so each cylinder has its own phase:</p>
+  <table>
+    <tr><th>Cylinder</th><th>Fires at</th><th>0.5× phase</th></tr>
+    <tr><td>1</td><td>0°</td><td class="num">+45°</td></tr>
+    <tr><td>3</td><td>180°</td><td class="num">−45°</td></tr>
+    <tr><td>4</td><td>360°</td><td class="num">−135°</td></tr>
+    <tr><td>2</td><td>540°</td><td class="num">+135°</td></tr>
+  </table>
+  <p>The governor keeps the mean speed, so with one cylinder out the other three must do four cylinders' work: the torque command rises by exactly <b>4/3</b> (in the app, about 111 to 148 N·m).</p>
+
+  <h3>Proving a sensor lied</h3>
+  <div class="eq">fastest possible heating = (max heat into coolant) / C_th
+                        = 81,500 W / 100,000 J/K ≈ 0.8 K/s
+a reading that jumps 25 °C in 0.10 s implies about 250 K/s, over 300 times the limit</div>
+  <p>The engine cannot do that, so the sensor failed. The other sensors and the Twin agree with each other, so the cooling system is <b>not</b> blamed.</p>
+
+  <div class="box warn"><b>Wording rules the app follows</b>A weighted fault score is a "diagnostic evidence score", never a confidence percentage. Vibration thresholds are "engine-profile calibration values", never ISO limits. A crank journal-bearing fault is never labelled with rolling-bearing frequencies (BPFO/BPFI), because those formulas do not apply.</div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 7</div>
+  <h2>The five-minute demo</h2>
+  <p class="lead">Built around three moments people remember: a fault they choose themselves, named from the sensors alone; a misfire that names its cylinder; and a sensor fault the system refuses to believe.</p>
+
+  <div class="box"><b>Before you start</b>Run <code>start-ignisense.bat</code> (or <code>npm run demo</code>). Check the fps number in the 3D view: about 60 is right, under about 20 means reload with <code>?no3d</code>. Volume up (sound starts only after you click <code>Sound on</code>). Two ways to run it: <b>Safe</b> is Test bench → Scenario → <b>Full walkthrough</b> → <code>Run scenario</code>, which drives every step for you (use <code>Pause</code> to talk). <b>Live</b> is doing the clicks yourself, best when a visitor picks the fault.</div>
+
+  <table>
+    <tr><th style="width:13%">Time</th><th style="width:22%">Moment</th><th>Do this / point at this</th></tr>
+    <tr><td class="num">0:00–0:40</td><td>The problem</td><td><span class="tag">say</span> Fixed-interval maintenance wastes parts or misses failures. IgniSense has two engines: the "real" one with hidden faults, and a healthy twin that only sees sensor readings. The gap between them is the evidence.</td></tr>
+    <tr><td class="num">0:40–1:20</td><td>Cold start</td><td>Start at 20 °C, idle. Oil pressure reads about <b>2.5 bar</b> (cold oil is thick). The white Twin marker sits on each needle. Pistons are slowed 100×. At 60× the half-hour warm-up passes in about half a minute. Click the oil-pressure value: the drawer shows the equation and <span class="mono">✓ EQUAL</span>.</td></tr>
+    <tr><td class="num">1:20–2:20</td><td>Blind fault</td><td>Test bench, <code>Start blind test</code>. A visitor selects a case. Point at <b>Trends → CUSUM</b> crossing 5 before any rule trips (the early warning), then the WATCH and WARNING alerts and the diagnosis card. Press <code>Reveal the card</code>: <span class="mono">✓ CORRECT</span>.</td></tr>
+    <tr><td class="num">2:20–3:20</td><td>Misfire</td><td>Inject <b>Cylinder misfire</b> on C3. Turn <code>Sound on</code>: the engine stumbles. On Vibration a 0.5× line appears and the polar dot lands in the C3 sector (−45°). The torque command rises by <b>4/3</b>. The card names "Cylinder 3 misfire".</td></tr>
+    <tr><td class="num">3:20–3:50</td><td>Sensor fault</td><td>Repair, then Sensor fault: COOLANT, SPIKE. The card says "Coolant sensor fault": the reading jumped 25 °C in 0.1 s (about 250 K/s) but the energy balance allows 0.81 K/s. The cooling system is <b>not</b> blamed.</td></tr>
+    <tr><td class="num">3:50–4:30</td><td>Prognosis and report</td><td>Oil-pump wear with onset <code>PROGRESSIVE</code> at 10× for a minute: the health panel shows a remaining-life band. Raise the Load slider: wear speeds up and the RUL shrinks. Report → <code>Print / save PDF</code>.</td></tr>
+    <tr><td class="num">4:30–5:00</td><td>Hardware path</td><td><span class="tag">say</span> Every source emits the same telemetry object. An ESP32 with cheap sensors (DS18B20, MAX31855, a pressure transducer, an ADXL345) or a USB OBD-II adapter only needs one adapter file; the analytics do not change. Next step: a heat-balance run on a real engine rig.</td></tr>
+  </table>
+
+  <h3>Questions visitors ask, and short answers</h3>
+  <table>
+    <tr><th style="width:34%">Question</th><th>Answer</th></tr>
+    <tr><td>Isn't it just reading the fault you injected?</td><td>No. The analytics only receive telemetry; the fault lives in a module they cannot import (a lint rule enforces it). The blind test proves it.</td></tr>
+    <tr><td>How accurate is the model?</td><td>A reduced-order model with demo calibration, checked against hand calculations on the Validation page. Absolute accuracy needs calibration on a real engine.</td></tr>
+    <tr><td>Why not deep learning?</td><td>There is no real failure data. A network trained on our simulator would just learn our own equations back. Our statistics have a known false-alarm rate; machine learning becomes useful once real data is logged.</td></tr>
+    <tr><td>What is the false-alarm rate?</td><td>D² uses the χ² 99 % limit, so about 1 healthy sample in 100 crosses it. An alarm needs 3 s of persistence. In our tests a healthy engine never raised a held alarm.</td></tr>
+    <tr><td>Why does an inline-4 shake at twice crank speed?</td><td>The first-order piston forces cancel between the pairs of cylinders; the second-order forces add. That is 2,517 N peak at 3,000 rpm.</td></tr>
+    <tr><td>How do you know which cylinder misfired?</td><td>From the phase of the half-order crank-speed component: +45°, +135°, −45°, −135° for cylinders 1, 2, 3, 4.</td></tr>
+    <tr><td>Why exactly 4/3?</td><td>The governor holds the speed, so mean torque must still match the load. With one cylinder out, three pulses carry four pulses' worth.</td></tr>
+    <tr><td>Sensor spike or real overheating?</td><td>Physics: the engine cannot heat faster than about 0.8 K/s, and a real rise would also warm the oil through the water jacket.</td></tr>
+    <tr><td>Is the RUL real?</td><td>It is a trend estimate: a straight-line fit with a ±2 standard-error band, shown only when the slope is significant, and conditional on the current load.</td></tr>
+  </table>
+
+  <h3>If something goes wrong on stage</h3>
+  <table>
+    <tr><th style="width:34%">Symptom</th><th>Recovery</th></tr>
+    <tr><td>The 3D view stutters</td><td>Keep going: the numbers are unaffected. Or reload with <code>?no3d</code>.</td></tr>
+    <tr><td>A step is taking too long</td><td>Test bench → Time-warp <code>60×</code>, or press <code>Restart</code> on the scenario strip.</td></tr>
+    <tr><td>A wrong fault is still active</td><td>Test bench → <code>Repair</code>. Alerts clear after their hold time.</td></tr>
+    <tr><td>Lost track of the state</td><td>Reload the page. It restarts from a cold engine with the same seed.</td></tr>
+  </table>
+</section>
+
+<!-- ============ 8 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 8</div>
+  <h2>Replicate it tomorrow: checklist</h2>
+  <p class="lead">Do the first block tonight. Do the second block on the day. Nothing here needs the internet except the first install.</p>
+
+  <h3>Tonight</h3>
+  <ol class="steps">
+    <li><b>Node is installed.</b> Open a new terminal: <code>node --version</code> shows 20.19 or higher.</li>
+    <li><b>The project is on the presentation laptop</b> (not just your own). Double-click <code>start-ignisense.bat</code> once <b>with internet</b>, keep the window open until the browser opens.</li>
+    <li><b>Turn the Wi-Fi off and run it again.</b> It must still open. That proves it works offline.</li>
+    <li><b>Run the Full walkthrough once</b> (Test bench → Scenario → Full walkthrough → Run scenario) and watch it to the end.</li>
+    <li><b>Check the 3D frame rate</b> on <i>that</i> laptop (top of the 3D view). "Reduced effects" is fine if it stays smooth; if it does not, plan to use <code>?no3d</code>. <span class="tag">gate</span></li>
+    <li><b>Phone?</b> If you will show it on a phone, check it at 375–400 px on that phone first. The desktop layout is approved. <span class="tag">gate</span></li>
+    <li><b>Hardware?</b> Keep ESP32 / OBD-II as a roadmap slide unless that exact hardware has passed a full rehearsal. <span class="tag">gate</span></li>
+    <li><b>Test the sound</b> on the laptop's speakers. Adjust the laptop volume, not the app.</li>
+    <li><b>Open Validation</b> and confirm every row is green.</li>
+    <li><b>Save a spare report:</b> run a fault, Report → <code>Print / save PDF</code>, keep the PDF on the desktop.</li>
+    <li><b>Practise the blind test</b> once with a colleague selecting the case.</li>
+  </ol>
+
+  <h3>On the day</h3>
+  <ol class="steps">
+    <li>Close other heavy programs and plug the laptop in (battery saver slows the 3D view).</li>
+    <li>Start IgniSense 10 minutes early. Set the browser to full screen (<code>F11</code>) and zoom so the gauges are readable from a distance.</li>
+    <li>Decide who drives and who talks. The person talking should know chapters 5 and 6 well enough to answer "how does it know?".</li>
+    <li>Keep this guide and <code>docs/whiteboard.md</code> open for the derivations: ω = 314 rad/s, 4/3, 0.8 K/s, F₂ = 2,517 N.</li>
+    <li>Use <b>Safe</b> mode (the tour) with visitors who only stop for a minute, <b>Live</b> mode when someone wants to pick a fault.</li>
+    <li>Between groups press <code>Repair</code> then reload if anything looks odd.</li>
+  </ol>
+
+  <div class="box say"><b>The 30-second version</b><span class="tag">say</span> "This is a digital twin of a petrol engine. The real engine hides a fault; the twin only sees the sensors. The difference between what the sensors read and what a healthy engine would read is the evidence. From that we name the fault, find which cylinder, estimate how long is left, and we can show the equation behind every number. Choose a fault and watch the monitor find it."</div>
+</section>
+
+<!-- ============ 9 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 9</div>
+  <h2>Build it yourself: phases and project map</h2>
+  <p class="lead">IgniSense was built one phase at a time. Each phase ends with tests that must pass, so this is also the order to rebuild it in.</p>
+
+  <table>
+    <tr><th style="width:8%">Phase</th><th style="width:26%">What was built</th><th>Where, and how it was checked</th></tr>
+    <tr><td>0</td><td>Scaffold and guard rails</td><td>Vite, React, TypeScript strict, Tailwind, Vitest, ESLint. The rule that stops the analytics importing the plant. Seeded RNG.</td></tr>
+    <tr><td>1</td><td>Slow physics</td><td><span class="mono">src/physics/</span>: pure functions for friction, energy, cooling, oil, electrical. Golden numbers reproduce within 2 %.</td></tr>
+    <tr><td>2</td><td>Plant, sensors, Twin, worker</td><td><span class="mono">plant/, twin/, sources/simSource.ts, worker/</span>. Healthy residuals are pure noise; same seed, same telemetry.</td></tr>
+    <tr><td>3</td><td>Faults, residuals, diagnosis, health, alerts</td><td><span class="mono">analytics/</span>. Each fault gives the right top diagnosis; healthy 20 min gives no alarm.</td></tr>
+    <tr><td>4</td><td>Live dashboard</td><td><span class="mono">ui/pages/LiveTwin, Trends</span>, zustand store, uPlot charts.</td></tr>
+    <tr><td>5</td><td>3D engine</td><td><span class="mono">three/</span>: procedural I4 driven by the slider-crank equation.</td></tr>
+    <tr><td>6</td><td>Oil-pump scenario</td><td><span class="mono">worker/scenarios.ts</span>; three runs identical.</td></tr>
+    <tr><td>7</td><td>Crank angle, vibration, misfire</td><td><span class="mono">physics/crankTorque, vibration; analytics/fft, spectral</span>. Every misfire golden row reproduces.</td></tr>
+    <tr><td>8</td><td>Calculation view, blind test</td><td><span class="mono">physics/registry.ts, ui/math/, worker/blind.ts</span>. Substituted numbers equal the gauges.</td></tr>
+    <tr><td>9</td><td>Advanced analytics</td><td>Sensor sanity, D², CUSUM, RUL, extra faults, stress-dependent wear.</td></tr>
+    <tr><td>10</td><td>Validation, report, sound, hot city</td><td><span class="mono">ui/pages/Validation, Report; ui/audio/</span>.</td></tr>
+    <tr><td>11</td><td>Demo hardening</td><td>Full walkthrough, start scripts, offline check, <span class="mono">docs/demo-script.md</span>.</td></tr>
+    <tr><td>12</td><td>Open-questions review</td><td><span class="mono">docs/open-questions-review.md</span>: decisions that need the physics owner.</td></tr>
+    <tr><td>13</td><td>Real data sources</td><td><span class="mono">sources/csv, replaySource, serialSource</span>; ESP32, OBD-II, phone accelerometer.</td></tr>
+  </table>
+
+  <h3>Folder map</h3>
+  <table>
+    <tr><th style="width:24%">Folder</th><th>Holds</th></tr>
+    <tr><td><span class="mono">src/physics/</span></td><td>Pure equations, each registered with LaTeX, inputs and a compute function (that is what the calculation view reads). No state.</td></tr>
+    <tr><td><span class="mono">src/engine/profile.ts</span></td><td><b>Every engine parameter</b> with units in the name (bore_m, uaFan_WperK). Change a value here, then run <code>npm test</code>.</td></tr>
+    <tr><td><span class="mono">src/plant/</span></td><td>The "real" engine state, hidden faults, sensor model, crank and accelerometer signals.</td></tr>
+    <tr><td><span class="mono">src/twin/</span></td><td>The healthy reference. Driven only by measured speed, load, ambient.</td></tr>
+    <tr><td><span class="mono">src/analytics/</span></td><td>Residuals, sanity checks, statistics (D², CUSUM), FFT, diagnosis, health, alerts, remaining life. May not import plant or sources.</td></tr>
+    <tr><td><span class="mono">src/sources/</span></td><td>Anything that produces telemetry: simulator, CSV replay, ESP32 / OBD-II.</td></tr>
+    <tr><td><span class="mono">src/worker/</span></td><td>The simulation loop (<span class="mono">simLoop.ts</span>), scenarios, blind deck, the worker wrapper, and the message types.</td></tr>
+    <tr><td><span class="mono">src/three/</span></td><td>The 3D scene.</td></tr>
+    <tr><td><span class="mono">src/ui/</span></td><td>Pages, design-system components, math drawer, audio, the test bench.</td></tr>
+    <tr><td><span class="mono">docs/</span></td><td>The research review and build plan (source of truth), calibration log, open questions, demo script, whiteboard derivations.</td></tr>
+  </table>
+
+  <h3>Where to change common things</h3>
+  <table>
+    <tr><th style="width:44%">I want to…</th><th>Change</th></tr>
+    <tr><td>Change an engine parameter (mass, efficiency, radiator size…)</td><td><span class="mono">src/engine/profile.ts</span>, then log it in <span class="mono">docs/calibration.md</span></td></tr>
+    <tr><td>Change alert thresholds, weights, misfire ramps</td><td><span class="mono">src/analytics/config.ts</span></td></tr>
+    <tr><td>Change how the engine sounds (level, brightness, growl)</td><td><code>tone()</code> in <span class="mono">src/ui/audio/engineSound.ts</span></td></tr>
+    <tr><td>Change the team or product name</td><td><span class="mono">src/brand.ts</span> (used everywhere)</td></tr>
+    <tr><td>Add a scenario</td><td><span class="mono">src/worker/scenarios.ts</span></td></tr>
+    <tr><td>Add a new data source (a real sensor board)</td><td>One new file in <span class="mono">src/sources/</span> that outputs the same <span class="mono">Telemetry</span> object. The analytics do not change.</td></tr>
+  </table>
+
+  <div class="box warn"><b>Rules that must not be broken</b>The analytics must never import fault or plant state (the lint rule stops it). Physics stays pure, with no imports from plant, twin, analytics or the UI. All randomness goes through the seeded generator. Sensor dropout is <code>null</code>, never 0 or NaN. Every new physics function gets a test against a hand-calculated value.</div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 10</div>
+  <h2>Key numbers cheat-sheet</h2>
+  <p class="lead">The values the tests check and the demo quotes. All are demo calibration.</p>
+
+  <div class="cols">
+    <div>
+      <h3>Basics at 3,000 rpm</h3>
+      <table>
+        <tr><td>Angular speed ω</td><td class="num">314.16 rad/s</td></tr>
+        <tr><td>Crank frequency</td><td class="num">50 Hz</td></tr>
+        <tr><td>Firing frequency</td><td class="num">100 Hz</td></tr>
+        <tr><td>Brake power at 80 N·m</td><td class="num">25.1 kW</td></tr>
+        <tr><td>BMEP at 80 N·m</td><td class="num">5.03 bar</td></tr>
+      </table>
+      <h3>Oil pressure (bar)</h3>
+      <table>
+        <tr><td>Cold idle, 20 °C</td><td class="num">2.54</td></tr>
+        <tr><td>Hot idle, 100 °C</td><td class="num">1.39</td></tr>
+        <tr><td>Hot, 3,000 rpm</td><td class="num">3.23</td></tr>
+        <tr><td>Pump 0.4, hot idle</td><td class="num">0.56</td></tr>
+        <tr><td>Bearing wear 0.6, 3,000</td><td class="num">1.70</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Vibration F₂ (N)</h3>
+      <table>
+        <tr><td>800 rpm (26.7 Hz)</td><td class="num">179</td></tr>
+        <tr><td>3,000 rpm (100 Hz)</td><td class="num">2,517</td></tr>
+        <tr><td>6,000 rpm (200 Hz)</td><td class="num">10,068</td></tr>
+      </table>
+      <h3>Misfire, 3,000 rpm / 80 N·m</h3>
+      <table>
+        <tr><td>Healthy ripple</td><td class="num">11 rpm p-p</td></tr>
+        <tr><td>One cylinder out</td><td class="num">61 rpm p-p</td></tr>
+        <tr><td>0.5× amplitude</td><td class="num">21.0 rpm</td></tr>
+        <tr><td>Torque command</td><td class="num">110 → 146 N·m (×4/3)</td></tr>
+        <tr><td>Phases C1, C2, C3, C4</td><td class="num">+45, +135, −45, −135°</td></tr>
+      </table>
+      <h3>Statistics</h3>
+      <table>
+        <tr><td>χ²(5), 99 %</td><td class="num">15.09</td></tr>
+        <tr><td>CUSUM κ, h</td><td class="num">0.5, 5</td></tr>
+        <tr><td>Max coolant heating</td><td class="num">≈ 0.8 K/s</td></tr>
+        <tr><td>Health example (draft §22.1)</td><td class="num">69.4</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h3>Steady-state coolant and energy flow</h3>
+  <table>
+    <tr><th>Point</th><th>Brake kW</th><th>Fuel kW</th><th>Coolant kW</th><th>Fuel L/h</th><th>Steady coolant</th></tr>
+    <tr><td>Idle 800 rpm</td><td class="num">0</td><td class="num">7.5</td><td class="num">2.6</td><td class="num">0.85</td><td>82 °C (warm-up)</td></tr>
+    <tr><td>3,000 rpm, 80 N·m</td><td class="num">25.1</td><td class="num">110.8</td><td class="num">31.9</td><td class="num">12.5</td><td>93 °C</td></tr>
+    <tr><td>4,000 rpm, 190 N·m</td><td class="num">79.6</td><td class="num">252.3</td><td class="num">55.5</td><td class="num">28.6</td><td>98 °C (fan cycling)</td></tr>
+    <tr><td>6,000 rpm, full load</td><td class="num">103.6</td><td class="num">370.4</td><td class="num">81.5</td><td class="num">41.9</td><td>98 °C (fan cycling)</td></tr>
+  </table>
+  <p>Faults: cooling health 0.5 at full load reaches 132 °C; cooling health 0.25 at 3,000 rpm / 80 N·m reaches 110 °C.</p>
+</section>
+
+<!-- ============ 11 + 12 ============ -->
+<section class="chapter">
+  <div class="kicker">Chapter 11</div>
+  <h2>Limitations to state honestly</h2>
+  <p class="lead">Saying these yourself is a strength. It shows you know what the model is and is not.</p>
+  <ul>
+    <li>The telemetry is <b>synthetic</b>. It is not a substitute for engine-test data, and every coefficient is demo calibration.</li>
+    <li>The thermal model is <b>lumped</b>: one coolant temperature and one oil temperature, with no spatial gradients.</li>
+    <li>The lubrication model is an <b>empirical pressure law</b>, not a bearing-film (Reynolds) solver.</li>
+    <li>The crank model ignores compression torque and cycle-to-cycle combustion scatter. The governor is modelled at its settled state, not as a transient controller.</li>
+    <li>Vibration amplitudes are calibrated to look sensible, <b>not measured</b>. Thresholds are engine-profile calibration values, never ISO limits.</li>
+    <li>A slow drift in the oil-pressure or voltage sensor looks exactly like pump or alternator wear, because there is no physical cross-check for those channels. (Coolant has one: the oil must follow a real coolant rise.)</li>
+    <li>The remaining life is conditional on the assumed wear law and on the load continuing. Stop-and-go driving makes the trend noisy, so none is shown until it is significant.</li>
+    <li>The evidence scores are weighted sums, <b>not calibrated probabilities</b>. That is why the app never says "confidence %".</li>
+    <li>The overall health is a weighted average, so it can look mild beside one critical subsystem. The alert level carries the critical override.</li>
+    <li>ESP32 and OBD-II are not yet tested on real hardware. 60 fps depends on the laptop's graphics card.</li>
+  </ul>
+
+  <div class="kicker" style="margin-top:9mm">Chapter 12</div>
+  <h2>Glossary</h2>
+  <table>
+    <tr><th style="width:24%">Term</th><th>Meaning</th></tr>
+    <tr><td>Digital twin</td><td>A live model of a physical thing, run alongside it and compared with it.</td></tr>
+    <tr><td>Plant</td><td>In IgniSense, the simulated "real" engine, the only place hidden faults exist.</td></tr>
+    <tr><td>Twin</td><td>The healthy reference model. It predicts what each sensor should read.</td></tr>
+    <tr><td>Telemetry</td><td>The one common data format every source produces (rpm, load, temperatures, pressure, voltage, and so on).</td></tr>
+    <tr><td>Residual (r, z)</td><td>Measured minus expected; z is that gap in units of the sensor's noise.</td></tr>
+    <tr><td>Twin marker</td><td>The white tick or pointer showing the Twin's expected value on a gauge.</td></tr>
+    <tr><td>Health factor</td><td>A 0-to-1 multiplier on part of the physics. 1 = healthy.</td></tr>
+    <tr><td>Severity</td><td>How bad an injected fault is, 0 to 1.</td></tr>
+    <tr><td>Evidence score</td><td>The weighted 0-to-1 support for a fault. Not a probability.</td></tr>
+    <tr><td>CUSUM</td><td>Cumulative sum of small residuals; catches a slow persistent drift early.</td></tr>
+    <tr><td>D² (Mahalanobis)</td><td>A single number for how unusual the whole set of residuals is compared with healthy running.</td></tr>
+    <tr><td>χ² limit</td><td>The threshold D² exceeds only about 1 time in 100 for a healthy engine (15.09 for 5 signals).</td></tr>
+    <tr><td>RUL</td><td>Remaining useful life: how long until health reaches the failure level, at the current trend and load.</td></tr>
+    <tr><td>Hysteresis</td><td>Requiring a condition to persist (or clear) for some time, so alerts do not flicker.</td></tr>
+    <tr><td>Order (0.5×, 1×, 2×)</td><td>A multiple of crank speed. Order tracking keeps a fault at the same order at any rpm.</td></tr>
+    <tr><td>F₂</td><td>The second-order reciprocating force that makes an inline-4 shake at twice crank speed.</td></tr>
+    <tr><td>Misfire</td><td>A cylinder that fails to fire, removing one power pulse every two revolutions.</td></tr>
+    <tr><td>Time-warp</td><td>Running the simulated clock faster than real time (1×, 10×, 60×).</td></tr>
+    <tr><td>Demo calibration</td><td>A parameter chosen to give sensible behaviour, not measured on a real engine.</td></tr>
+  </table>
+  <p style="margin-top:6mm; color: var(--ink2); font-size: 9pt;">IgniSense — Smart Engine Health Diagnostic · Team Revora · Physics-informed engine digital twin. For deeper detail see <span class="mono">docs/research-review-and-build-plan.md</span>, <span class="mono">docs/calibration.md</span>, <span class="mono">docs/demo-script.md</span> and <span class="mono">docs/whiteboard.md</span>.</p>
+</section>
+
+</body>
+</html>
