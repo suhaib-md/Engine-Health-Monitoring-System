@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useUi } from '../store';
 import { isEngineRunning, sendSim, useSim } from '../sim/simClient';
 import { SectionHeader } from '../shell/Brand';
 import { Button, Panel } from '../primitives';
-import { AlertBadge, LifecycleBadge } from '../status';
+import { AlertBadge, LifecycleBadge, statusBg, statusBorder, statusText } from '../status';
 import { Gauge } from '../Gauge';
 import { HealthRing, SubsystemBars } from '../health';
 import { AlertItem, ExplanationCard } from '../diagnostics';
-import { PartCallout, PartPanel, ViewportChrome } from '../overlay3d';
+import { PartPanel, ViewportChrome } from '../overlay3d';
 import { Reveal, Stagger, StaggerItem, drawerSpring, EASE_OUT } from '../motion';
 import { residualStatus } from '../format';
 import { scoreStatus } from '../tokens';
 import type { ResidualChannel } from '../../analytics';
+import { PROFILE } from '../../engine/profile';
+import { registerCallout } from '../../three/callouts';
+import type { PartId as EnginePartId } from '../../three/Engine';
 
 const PRESETS = ['front', 'cutaway', 'top', 'explode'];
 /** stable empty list: a selector must never return a fresh [] (it would re-render forever) */
@@ -86,9 +89,131 @@ export function LiveTwinPage() {
 
 /* ---------- hero ---------- */
 
+// three.js is ~600 kB: load the 3D scene on demand so the rest of the app paints first
+const EngineScene = lazy(() => import('../../three/EngineScene'));
+
+type PartId = EnginePartId;
+
+/** Holds only UI state (preset, selected part); live data is read by its children, never here. */
 function Viewport() {
   const [preset, setPreset] = useState('front');
-  const [part, setPart] = useState<'oilPump' | 'radiator' | null>(null);
+  const [part, setPart] = useState<PartId | null>(null);
+  // DOM callouts: the 3D frame loop moves them onto their parts (no extra React roots)
+  return (
+    <ViewportChrome
+      preset={preset}
+      presets={PRESETS}
+      onPreset={setPreset}
+      className="h-[58vh] min-h-[420px]"
+    >
+      <Suspense
+        fallback={
+          <div className="viewport-hatch num absolute inset-0 flex items-center justify-center text-xs text-fg-3">
+            loading the procedural I4 cutaway…
+          </div>
+        }
+      >
+        <EngineScene preset={preset} onPart={setPart} />
+      </Suspense>
+      <PartMarker
+        part="oilPump"
+        name="Oil pump"
+        subsystem="lubrication"
+        onOpen={() => setPart('oilPump')}
+      />
+      <PartMarker
+        part="radiator"
+        name="Radiator"
+        subsystem="thermal"
+        onOpen={() => setPart('radiator')}
+      />
+      <SpeedReadout />
+      <AnimatePresence>
+        {part && <PartOverlay key={part} part={part} onClose={() => setPart(null)} />}
+      </AnimatePresence>
+    </ViewportChrome>
+  );
+}
+
+/**
+ * Minimal 3D part marker: a small status diamond sits on the part. Its label slides out on hover
+ * and stays open only while that subsystem is faulty, so labels never cover a healthy engine.
+ * The 3D frame loop positions it and sets `data-side` so the label opens away from the engine.
+ */
+function PartMarker({
+  part,
+  name,
+  subsystem,
+  onOpen,
+}: {
+  part: PartId;
+  name: string;
+  subsystem: 'lubrication' | 'thermal';
+  onOpen: () => void;
+}) {
+  const h = useSim(
+    (s) => s.snapshot?.analytics?.subsystems.find((x) => x.id === subsystem)?.health ?? 100,
+  );
+  const st = scoreStatus(h);
+  const alert = st !== 'ok';
+  return (
+    <div
+      ref={registerCallout(part)}
+      data-side="right"
+      data-alert={alert}
+      className="group pointer-events-none absolute left-0 top-0 z-[5] opacity-0 transition-opacity duration-base"
+    >
+      <button
+        onClick={onOpen}
+        aria-label={`${name} · health ${Math.round(h)}`}
+        className={`pointer-events-auto absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 cursor-pointer border-2 bg-bg/70 transition-transform duration-fast ease-out hover:scale-125 ${statusBorder[st]}`}
+      >
+        {alert && <span className={`absolute inset-0 animate-ping ${statusBg[st]} opacity-40`} />}
+      </button>
+      <div
+        className={`absolute top-0 flex -translate-y-1/2 items-center transition-all duration-panel ease-out left-2 group-data-[side=left]:left-auto group-data-[side=left]:right-2 group-data-[side=left]:flex-row-reverse opacity-0 group-hover:opacity-100 group-data-[alert=true]:opacity-100`}
+      >
+        <span
+          className={`h-px w-0 transition-all duration-panel ease-out group-hover:w-10 group-data-[alert=true]:w-10 ${statusBg[st]}`}
+        />
+        <button
+          onClick={onOpen}
+          className={`pointer-events-auto cursor-pointer whitespace-nowrap border bg-bg/85 px-2.5 py-1 font-mono text-label font-bold text-fg backdrop-blur-sm ${statusBorder[st]}`}
+        >
+          {name.toUpperCase()} · <span className={statusText[st]}>{Math.round(h)}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Real engine speed vs the slowed display speed, plus the renderer's measured fps and mesh count. */
+function SpeedReadout() {
+  const rpm = useSim((s) => Math.round(s.snapshot?.telemetry.rpm ?? 0));
+  const [gfx, setGfx] = useState<{ fps: number; meshes: number } | null>(null);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const g = (window as unknown as { __ignisense3d?: { fps: number; meshes: number } })
+        .__ignisense3d;
+      if (g) setGfx({ fps: g.fps, meshes: g.meshes });
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="num pointer-events-none absolute right-4 top-14 hidden border border-line bg-bg/85 px-3 py-2 text-right text-label text-fg-3 sm:block">
+      engine <b className="text-fg">{rpm.toLocaleString('en-US')} rpm</b> · shown at{' '}
+      {(rpm / PROFILE.sim.displaySlowdown).toFixed(0)} rpm
+      {gfx && (
+        <>
+          {' '}
+          · {gfx.fps} fps · {gfx.meshes} meshes
+        </>
+      )}
+    </div>
+  );
+}
+
+function PartOverlay({ part, onClose }: { part: PartId; onClose: () => void }) {
   const subs = useSim((s) => s.snapshot?.analytics?.subsystems);
   const f = useSim((s) => s.snapshot?.analytics?.features);
   const set = useUi((s) => s.set);
@@ -107,68 +232,35 @@ function Viewport() {
   };
 
   return (
-    <ViewportChrome
-      preset={preset}
-      presets={PRESETS}
-      onPreset={setPreset}
-      className="h-[58vh] min-h-[420px]"
+    <motion.div
+      className="absolute inset-y-4 right-4 z-10 w-[360px] max-w-[calc(100%-2rem)]"
+      initial={{ x: 40, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      exit={{ x: 40, opacity: 0 }}
+      transition={drawerSpring}
     >
-      <div className="viewport-hatch absolute inset-0" />
-      <div className="num absolute inset-0 flex items-center justify-center text-xs text-fg-3">
-        three.js viewport · procedural I4 cutaway (Phase 5)
-      </div>
-      <div className="absolute left-[14%] top-[64%]">
-        <PartCallout
-          name="Oil pump"
-          health={lube}
-          status={scoreStatus(lube)}
-          onClick={() => setPart('oilPump')}
-        />
-      </div>
-      <div className="absolute left-[56%] top-[26%]">
-        <PartCallout
-          name="Radiator"
-          health={thermal}
-          status={scoreStatus(thermal)}
-          onClick={() => setPart('radiator')}
-        />
-      </div>
-
-      <AnimatePresence>
-        {part && (
-          <motion.div
-            key={part}
-            className="absolute inset-y-4 right-4 z-10 w-[360px] max-w-[calc(100%-2rem)]"
-            initial={{ x: 40, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 40, opacity: 0 }}
-            transition={drawerSpring}
-          >
-            <PartPanel
-              circuit={part === 'oilPump' ? 'Lubrication circuit' : 'Cooling circuit'}
-              part={part === 'oilPump' ? 'Oil pump' : 'Radiator'}
-              health={part === 'oilPump' ? lube : thermal}
-              status={scoreStatus(part === 'oilPump' ? lube : thermal)}
-              rows={
-                part === 'oilPump'
-                  ? [row('Oil pressure', 'oilPressBar', 2), row('Oil temp', 'oilC', 1)]
-                  : [row('Coolant', 'coolantC', 1), row('Oil temp', 'oilC', 1)]
-              }
-              actions={
-                <>
-                  <Button variant="ghost" onClick={() => set({ page: 'math' })}>
-                    Show the math
-                  </Button>
-                  <Button variant="secondary" onClick={() => setPart(null)}>
-                    Close
-                  </Button>
-                </>
-              }
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </ViewportChrome>
+      <PartPanel
+        circuit={part === 'oilPump' ? 'Lubrication circuit' : 'Cooling circuit'}
+        part={part === 'oilPump' ? 'Oil pump' : 'Radiator'}
+        health={part === 'oilPump' ? lube : thermal}
+        status={scoreStatus(part === 'oilPump' ? lube : thermal)}
+        rows={
+          part === 'oilPump'
+            ? [row('Oil pressure', 'oilPressBar', 2), row('Oil temp', 'oilC', 1)]
+            : [row('Coolant', 'coolantC', 1), row('Oil temp', 'oilC', 1)]
+        }
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => set({ page: 'math' })}>
+              Show the math
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
+              Close
+            </Button>
+          </>
+        }
+      />
+    </motion.div>
   );
 }
 

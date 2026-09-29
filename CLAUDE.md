@@ -87,7 +87,10 @@ src/
   sources/     simSource, replaySource (CSV), serialSource (ESP32 / OBD-II stub)
   worker/      simLoop.ts (testable loop: source -> twin -> analytics), sim.worker.ts (thin Worker
                wrapper, 20 Hz snapshots), protocol.ts (Command / Snapshot types)
-  three/       Engine, Crank, Piston, CoolantFlow, heat-map materials
+  three/       EngineScene (Canvas, offline Lightformer environment, contact shadows, grid, fog, bloom,
+               camera rig, fps probe; lazy-loaded), Engine (procedural I4 driven each frame from
+               physics/sliderCrank + physics/cycle), geometry.ts (lathe/extrude/tube part builders),
+               layout.ts (scene scale, poses, heat ramp, camera presets), callouts.ts (DOM marker registry)
   ui/          design system + app shell
     tokens.ts, status.tsx, primitives.tsx, Gauge.tsx, health.tsx, diagnostics.tsx,
     overlay3d.tsx, uplotTheme.ts   ← design-system components (from the handoff)
@@ -338,15 +341,17 @@ Doc: review *App screens* (Live Twin, Trends); draft §35.1, §35.3, §35.6.
 ### Phase 5: 3D engine (procedural, slider-crank)
 Doc: review *Three.js virtual engine plan*, *Piston motion*; draft §35.2.
 
-- [ ] `physics/sliderCrank.ts`: x(θ), rod angle φ, a(θ) (with tests)
-- [ ] Procedural block (semi-transparent cutaway), 4 pistons, 4 con-rods, crankshaft + flywheel
-- [ ] Pistons 1 & 4 at θ, 2 & 3 at θ + 180°, positions from x(θ) exactly
-- [ ] View-speed control: display at 1/100 real speed, labelled "display slowed 100×"
-- [ ] Heat-map block colour; oil-gallery glow = pressure; health overlay colours (green/amber/red/grey)
-- [ ] Click a part to open a side panel with its sensors, measured vs expected, residual and health
-- [ ] Camera presets
+- [x] `physics/sliderCrank.ts`: x(θ), rod angle φ, a(θ) (with tests)
+- [x] Procedural block (semi-transparent cutaway), 4 pistons, 4 con-rods, crankshaft + flywheel
+- [x] Pistons 1 & 4 at θ, 2 & 3 at θ + 180°, positions from x(θ) exactly
+- [x] View-speed control: display at 1/100 real speed, labelled "display slowed 100×"
+- [x] Heat-map block colour; oil-gallery glow = pressure; health overlay colours (green/amber/red/grey)
+- [x] Click a part to open a side panel with its sensors, measured vs expected, residual and health
+- [x] Camera presets
 
 **Exit checks:** TDC/BDC line up with θ = 0/180°. 60 fps. Under 100 meshes. The fault subsystem changes colour.
+
+✅ TDC/BDC verified by tests (pistons 1 & 4 at l + r when θ = 0, 2 & 3 at l − r; rod length exactly l at every angle). Browser (Edge over CDP, no errors): 45 meshes, 50 draw calls; the block heat-map turns cyan when warm; an oil-pump fault turns the sump, pump and gallery status-red and pulsing, and the callout drops to 24; all four camera presets and explode animate. **60 fps is not yet verified on a GPU** (headless software rendering gives 16 fps; Q-36). The viewport readout shows live fps so it can be checked on the demo laptop. Combustion flashes and F₂ block shake are Phase 7.
 
 ---
 
@@ -461,3 +466,5 @@ _One line per completed phase: date, phase, result, open issues._
 - 2026-09-28: **Phase 1 complete.** Pure physics modules (basics, torque, friction, energy, cooling, oil, electrical) + equation registry (13 equations) + composed `engineModel` (evaluate/step). All review golden numbers reproduce within 2 % (most < 0.5 %): 93/132/110 °C steady states, fan cycling 96–98 °C, and all six oil-pressure cases. Warm-up to 82 °C takes 25.1 min, which resolves Q-01 (cold-oil friction). Oil-temp and alternator constants are provisional and logged in `docs/calibration.md`; new items Q-27–Q-29. The Validation page shows live PASS for the Phase 1 rows. 47 tests pass; lint/typecheck/build clean. Waiting for user review (and the brother's calibration sign-off) before Phase 2.
 - 2026-09-29: **Phase 2 complete.** Plant (lifecycle OFF/STARTING/WARMUP/RUNNING/SHUTDOWN, fan override, hidden health), sensor model (noise/bias/drift/stuck/spike/dropout, seeded), blind Twin (healthy physics from telemetry only, follows the measured fan), SimSource, testable SimLoop + Web Worker (20 Hz, 1/10/60×, pause/reset), UI sim client, live header and test bench, Debug page. Healthy residuals ≈ pure sensor noise (mean ≤ 0.08 σ). Determinism verified; 60× idle warm-up takes 25 s of wall time; checked end to end in a real browser. New provisional items Q-30–Q-33 (parked cooling, shutdown sag, Twin oil-temp coupling, fanOn in Telemetry). 67 tests; lint/typecheck/build clean. Waiting for user review before Phase 3.
 - 2026-09-29: **Phases 3 & 4 complete.** Phase 3: progressive Plant faults (cooling, oil pump + lubrication degradation); `analytics/` = EMA residuals, context-corrected pressure (resolves Q-32), draft-weighted evidence scores, subsystem/overall health with critical overrides, hysteresis alert machines, alert log, draft §35.5 explanation; runs at 10 Hz in the worker. Phase 4: removed all sample data from Live Twin/Trends; live gauges with Twin ghosts and residual-coloured status, health ring, subsystem bars, animated explanation card and alert list, part panels from live residuals, uPlot Trends (both-direction residual band, fault and alert markers), test-bench inject/repair. 85 tests; lint/typecheck/build clean; end-to-end fault run verified in a real browser. New Q-34/Q-35. Next: Phase 5 (3D engine).
+- 2026-09-29: **Phase 5 complete (fps pending a GPU check).** `physics/sliderCrank.ts` (x(θ), φ, a(θ), throw offsets; 2 equations registered) + procedural three.js inline-4 (45 meshes) driven each frame from the equation at 1/100 display speed, with no React state in the loop. Coolant heat-map, oil-gallery glow from pressure, pulsing status overlay on faulty subsystems, clickable parts → part panel, 4 animated camera presets incl. explode, projected DOM callouts (Q-37), live fps/mesh readout. three.js is lazy-loaded (separate 934 kB chunk; main bundle unchanged). 97 tests; lint/typecheck/build clean. Timing test headroom relaxed 50× → 20× (analytics in the loop + parallel workers).
+- 2026-09-29: **Phase 5 visual upgrade (user feedback: 'make it look realistic and cool').** Detailed procedural parts: grooved pistons, I-beam rods, counterweighted crank, head with cam cover, twin camshafts and 8 valves driven by a new `physics/cycle.ts` (4-stroke phase, firing order 1-3-4-2, valve timing, combustion glow; 6 tests), per-cylinder firing flash + light, intake plenum, exhaust 4-into-1, finned radiator, shrouded fan, hoses, accessory belt. Offline studio environment (Lightformers, no HDR download), contact shadows, fading grid, fog, bloom, vignette. Heat-mapped block outline instead of solid boxes. Markers are now a status diamond; the label slides out on hover and stays open only for a faulty part, always opening away from the engine. 71 meshes. 103 tests; lint/typecheck/build clean. User measured 60 fps before the upgrade; re-check on the GPU (Q-36).

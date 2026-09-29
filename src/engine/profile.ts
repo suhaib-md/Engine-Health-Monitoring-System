@@ -29,6 +29,13 @@ export const PROFILE = {
     /** crank throw angle per cylinder 1..4, degrees */
     crankThrow_deg: [0, 180, 180, 0] as const,
     recipMassPerCyl_kg: 0.5,
+    /**
+     * Valve timing in 4-stroke cycle degrees, 0 = firing TDC (demo calibration, typical SI values):
+     * intake opens 10° before overlap TDC (350) and closes 50° after BDC (590);
+     * exhaust opens 50° before BDC (130) and closes 10° after TDC (370).
+     */
+    valveTiming_deg: { intakeOpen: 350, intakeClose: 590, exhaustOpen: 130, exhaustClose: 370 },
+    maxValveLift_m: 0.009,
     crankInertia_kgm2: 0.2,
   },
 

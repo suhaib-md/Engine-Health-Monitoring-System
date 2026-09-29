@@ -7,6 +7,7 @@ import { energyEquations } from './energy';
 import { coolingEquations } from './cooling';
 import { oilEquations } from './oil';
 import { electricalEquations } from './electrical';
+import { sliderCrankEquations } from './sliderCrank';
 
 export * from './registry';
 export * from './basics';
@@ -17,6 +18,8 @@ export * from './cooling';
 export * from './oil';
 export * from './electrical';
 export * from './engineModel';
+export * from './sliderCrank';
+export * from './cycle';
 
 export const EQUATIONS: readonly RegisteredEquation[] = [
   ...basicsEquations,
@@ -26,6 +29,7 @@ export const EQUATIONS: readonly RegisteredEquation[] = [
   ...coolingEquations,
   ...oilEquations,
   ...electricalEquations,
+  ...sliderCrankEquations,
 ];
 
 export const equationById = (id: string) => EQUATIONS.find((e) => e.id === id);
