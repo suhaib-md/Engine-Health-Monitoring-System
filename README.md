@@ -53,26 +53,26 @@ The header has seven pages, a clock (simulated time and time-warp) and the **Tes
 
 | Page | What it shows |
 | --- | --- |
-| **Live Twin** | 3D engine, health ring, subsystem health, gauges with the Twin's expected value as a white ghost, the diagnosis card, alerts, and a live cause-and-effect graph |
+| **Live Twin** | 3D engine, health ring, subsystem health, gauges with the Twin's expected value as a white Twin marker, the diagnosis card, alerts, and a live cause-and-effect graph |
 | **Trends** | Measured vs Twin over time, fault and alert markers, Mahalanobis D² and CUSUM |
 | **Vibration** | Order spectrum, misfire polar plot (which cylinder), crank-speed ripple |
 | **Math** | Every equation with today's numbers substituted. Click any gauge value to open this for that gauge. |
 | **Validation** | Hand-calculated values beside the model's, computed live (all green) |
 | **Report** | A one-page maintenance report; **Print / save PDF** |
-| **Debug** | Raw telemetry beside the Twin |
+| **Data** | Raw telemetry beside the Twin |
 
 **Demo buttons**
 
-- **Run hero scenario** (Live Twin): cold start → warm-up → the oil pump wears → diagnosis, identical every time.
-- **Test bench → Scenario → Full demo tour** is the whole five-minute demo in one button, with **Pause** to talk over it. See [docs/demo-script.md](docs/demo-script.md).
-- **Test bench → Blind challenge** deals nine sealed fault cards. A judge picks one, the monitor names it, and **Reveal** shows whether it was right.
-- **Test bench → Fault injection**: oil-pump wear, cooling, cylinder misfire, bearing wear, alternator, sensor faults. **Wears on** keeps a fault growing, faster under load, so the RUL has a trend to follow.
+- **Run oil-pump scenario** (Live Twin): cold start → warm-up → the oil pump wears → diagnosis, identical every time.
+- **Test bench → Scenario → Full walkthrough** is the whole five-minute demo in one button, with **Pause** to talk over it. See [docs/demo-script.md](docs/demo-script.md).
+- **Test bench → Blind test** prepares nine sealed fault cases. Select one, the monitor identifies it from the sensors alone, and **Reveal answer** shows whether it was right.
+- **Test bench → Fault injection**: oil-pump wear, cooling, cylinder misfire, bearing wear, alternator, sensor faults. **Progressive** keeps a fault growing, faster under load, so the RUL has a trend to follow.
 
 ---
 
-## For the presenter
+## For presentations
 
-- [docs/demo-script.md](docs/demo-script.md): the five-minute demo, click by click, with what to say and likely judge questions
+- [docs/demo-script.md](docs/demo-script.md): the five-minute demo, click by click, with what to say and likely audience questions
 - [docs/whiteboard.md](docs/whiteboard.md): the derivations to do by hand (ω = 314 rad/s, the 4/3 torque ratio, 0.8 K/s and more) and the limitations to state
 
 ## Project documents

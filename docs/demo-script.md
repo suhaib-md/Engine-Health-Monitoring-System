@@ -2,7 +2,7 @@
 
 **IgniSense — Smart Engine Health Diagnostic · Team Revora**
 
-This follows the review's five-minute script, built around three moments judges remember:
+This follows the review's five-minute script, built around three moments an audience remembers:
 
 1. a fault they choose themselves, named from the sensors alone
 2. a misfire that names its cylinder
@@ -14,8 +14,15 @@ This follows the review's five-minute script, built around three moments judges 
 - Check the fps readout in the 3D view's top-right corner. It should say about 60 fps. If it keeps saying "reduced effects", that is fine. If it is below about 20, reload with `?no3d` at the end of the address.
 - Laptop volume up. The engine sound starts only after you click **Sound on**.
 - Two ways to run the demo:
-  - **Safe:** Test bench → Scenario → **Full demo tour** → Run scenario. It drives every step below by itself. Use **Pause** in the strip to talk, then **Resume**.
-  - **Live:** do the clicks yourself as listed. Use this if you want a judge to pick the fault (blind challenge).
+  - **Safe:** Test bench → Scenario → **Full walkthrough** → Run scenario. It drives every step below by itself. Use **Pause** in the strip to talk, then **Resume**.
+  - **Live:** do the clicks yourself as listed. Use this if you want an audience member to pick the fault (blind test).
+
+**Rehearsal gates (decided in the Phase 12 review):**
+
+- **Frame rate (Q-36):** rehearse on the demo laptop and read the fps readout. "Reduced effects" is fine as long as it stays smooth; if not, reload with `?no3d`.
+- **Phone (Q-26):** the desktop layout is approved. If you will show it on a phone, check it at 375–400 px on that phone first.
+- **Hardware (Q-59):** treat ESP32 / OBD-II as roadmap-only unless the exact hardware has passed an end-to-end rehearsal.
+- **Sound (Q-55):** off by default. Set the final volume once during the laptop rehearsal.
 
 Every number below is what the app shows at the stated operating point. Say "demo calibration" whenever you quote one.
 
@@ -32,16 +39,16 @@ Every number below is what the app shows at the stated operating point. Say "dem
 **Point at:**
 
 - Oil pressure reads about **2.5 bar** at a cold idle. Cold oil is thick.
-- The white ghost tick on each gauge is the Twin's expectation. It sits on the needle: measured equals expected.
+- The white Twin marker on each gauge is the Twin's expectation. It sits on the needle: measured equals expected.
 - The pistons move by the slider-crank equation, **slowed 100×** (labelled on screen). Pistons 1 and 4 move together, 2 and 3 opposite, and the cylinders flash in firing order 1-3-4-2.
 
 **Then:** time-warp 60× (the tour does it). Half an hour of warm-up passes in about half a minute. Pressure settles as the oil thins.
 
-**Click the oil-pressure value:** the math drawer shows the pressure equation with today's numbers in cyan. The white result is the ghost on the gauge; the drawer's check table says **✓ EQUAL**.
+**Click the oil-pressure value:** the math drawer shows the pressure equation with today's numbers in cyan. The white result is the Twin marker on the gauge; the drawer's check table says **✓ EQUAL**.
 
 ## 1:20–2:20 · Blind fault
 
-**Live:** Test bench → **Deal blind challenge**. Ask a judge to pick a card on the Live Twin page. Nobody on screen knows what is on it; the worker shuffled the deck.
+**Live:** Test bench → **Start blind test**. Ask an audience member to select a case on the Live Twin page. Nobody on screen knows what is in it; the worker shuffled the deck.
 
 **Tour:** the oil pump starts to wear, and keeps wearing.
 
@@ -73,7 +80,7 @@ Every number below is what the app shows at the stated operating point. Say "dem
 
 ## 3:50–4:30 · Prognosis and report
 
-**Click:** Test bench → Oil-pump wear → onset **Wears on** → Inject. Let it run at 10× for a minute.
+**Click:** Test bench → Oil-pump wear → onset **Progressive** → Inject. Let it run at 10× for a minute.
 
 **Point at:**
 
@@ -87,11 +94,11 @@ Every number below is what the app shows at the stated operating point. Say "dem
 
 ---
 
-## Likely judge questions
+## Likely audience questions
 
 | Question | Answer |
 | --- | --- |
-| Isn't the AI just reading the fault you injected? | No. The analytics only receive telemetry; the fault state lives in a separate module they cannot import (a lint rule enforces it). The blind challenge you just ran proves it. |
+| Isn't the AI just reading the fault you injected? | No. The analytics only receive telemetry; the fault state lives in a separate module they cannot import (a lint rule enforces it). The blind test you just ran proves it. |
 | How accurate is the model? | It is a reduced-order model with demo calibration, checked against hand calculations on the Validation page (all green). Absolute accuracy needs real-engine calibration: a heat-balance test on the lab rig. |
 | Why not deep learning? | There is no real failure data. A network trained on our simulator would learn our own equations back. The statistics we use have a known false-alarm rate; machine learning becomes useful once real data is logged. |
 | What is your false-alarm rate? | D²'s limit is the χ² 99 % point (15.09 for 5 signals), so about 1 healthy sample in 100 crosses it. An alarm needs 3 s of persistence, which cuts that sharply. In our tests a healthy engine never raised a held alarm. |

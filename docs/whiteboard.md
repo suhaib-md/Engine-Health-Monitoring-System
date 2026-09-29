@@ -2,7 +2,7 @@
 
 **IgniSense — Smart Engine Health Diagnostic · Team Revora**
 
-The derivations a judge may ask for, each small enough to do by hand. Engine: 2.0 L inline-4, bore = stroke = 86 mm, crank radius r = 43 mm, con-rod l = 145 mm (λ = r/l = 0.297), reciprocating mass 0.5 kg per cylinder, crank + flywheel inertia J = 0.20 kg·m², firing order 1-3-4-2. Operating point unless stated: **3,000 rpm, 80 N·m**. All values are demo calibration. Each result below is checked by a test and shown live on the Validation page.
+The derivations a reviewer may ask for, each small enough to do by hand. Engine: 2.0 L inline-4, bore = stroke = 86 mm, crank radius r = 43 mm, con-rod l = 145 mm (λ = r/l = 0.297), reciprocating mass 0.5 kg per cylinder, crank + flywheel inertia J = 0.20 kg·m², firing order 1-3-4-2. Operating point unless stated: **3,000 rpm, 80 N·m**. All values are demo calibration. Each result below is checked by a test and shown live on the Validation page.
 
 ---
 
