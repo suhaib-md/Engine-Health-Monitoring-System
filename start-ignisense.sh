@@ -9,8 +9,9 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -d node_modules ]; then
-  echo "First run: installing dependencies. This needs internet once..."
+# check for the tools, not just the folder (an interrupted install leaves node_modules half-filled)
+if [ ! -x node_modules/.bin/tsc ] || [ ! -x node_modules/.bin/vite ]; then
+  echo "Installing dependencies. This needs internet and takes a minute or two..."
   npm install || { echo "npm install failed. Check the internet connection and try again."; exit 1; }
 fi
 

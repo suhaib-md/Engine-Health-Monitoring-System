@@ -7,15 +7,22 @@ cd /d "%~dp0"
 where node >nul 2>nul
 if errorlevel 1 (
   echo.
-  echo Node.js is not installed.
-  echo Install the LTS version from https://nodejs.org ^(20.19 or newer^), then double-click this file again.
+  echo Node.js is not installed, or this window was opened before it was installed.
+  echo Install the LTS version from https://nodejs.org ^(20.19 or newer^),
+  echo then close this window and double-click this file again.
   echo.
   pause
   exit /b 1
 )
 
-if not exist node_modules (
-  echo First run: installing dependencies. This needs internet once and takes a minute or two...
+rem Check for the tools themselves, not just the folder: an interrupted install leaves a
+rem half-filled node_modules behind, and then "tsc" or "vite" is missing.
+set NEED_INSTALL=0
+if not exist "node_modules\.bin\tsc.cmd" set NEED_INSTALL=1
+if not exist "node_modules\.bin\vite.cmd" set NEED_INSTALL=1
+if "%NEED_INSTALL%"=="1" (
+  echo Installing dependencies. This needs internet and takes a minute or two...
+  echo Keep this window open until it finishes.
   call npm install
   if errorlevel 1 (
     echo.
