@@ -21,7 +21,7 @@ export function VibrationPage() {
       <SectionHeader
         index="03"
         title="Vibration & crank"
-        description="Order spectrum in the crank-angle domain, so peaks stay sharp while RPM changes. A half-order (0.5×) component means one cylinder is firing weak; its phase names which one."
+        description="Order spectrum in the crank-angle domain, so peaks stay sharp while RPM changes. A half-order (0.5×) component means one cylinder is firing weak; its phase names which one. Amplitudes are relative demo values (engine-profile calibration), not measured vehicle data or ISO limits."
       />
       <Body />
       <AccelerometerPanel />

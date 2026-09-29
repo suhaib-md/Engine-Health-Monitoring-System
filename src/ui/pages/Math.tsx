@@ -25,7 +25,7 @@ export function MathPage() {
         <SectionHeader
           index="04"
           title="Show the math"
-          description="Every number on screen comes from a registered equation. Pick a gauge to see its chain with today's numbers substituted: cyan is measured, white is the Twin's own state, grey is the healthy assumption, orange is what the monitor infers."
+          description="Every number on screen comes from a registered equation. Pick a gauge to see its chain with today's numbers substituted: cyan is measured, white is the Twin's own state, grey is the healthy assumption, orange is what the monitor infers. The chain shown is the Twin's expected-value chain; its result is the white Twin marker on the gauge."
         />
         <Reveal>
           <Panel tab className="flex flex-col gap-8 p-8">

@@ -336,16 +336,16 @@ export function TestBench() {
 
               <p className="num m-0 text-label leading-relaxed text-fg-3">
                 {fault.id === 'sensor'
-                  ? 'A sensor fault leaves the engine healthy: the monitor has to prove, from physics and the other sensors, that the reading is wrong.'
+                  ? 'A sensor fault leaves the engine healthy: the monitor has to prove, from physics and the other sensors, that the reading is wrong. Limit: a slow drift in the oil-pressure or voltage sensor cannot be told apart from real pump or alternator wear, because no physical cross-check exists for those channels.'
                   : fault.id === 'bearing'
-                    ? `Bearing wear ${ui.severity.toFixed(2)} lowers oil pressure by ${((1 - 1 / (1 + 1.5 * ui.severity)) * 100).toFixed(0)} % and loosens the crank (1× vibration and knock).`
+                    ? `Bearing wear ${ui.severity.toFixed(2)} lowers oil pressure by ${((1 - 1 / (1 + 1.5 * ui.severity)) * 100).toFixed(0)} % and loosens the crank (1× vibration and knock). The wear progression is accelerated demo behaviour, not a bearing-life model.`
                     : `Severity ${ui.severity.toFixed(2)} leaves ${
                         fault.id === 'misfire'
                           ? `cylinder ${ui.cylinder} combustion`
                           : fault.label.toLowerCase()
                       } at health ${(1 - fault.gain * ui.severity).toFixed(2)}.`}{' '}
                 {ui.faultMode === 'progressive' && fault.id !== 'sensor'
-                  ? 'Wears on: the fault keeps growing, faster under load, heat and speed, so the RUL estimate has a trend to follow.'
+                  ? 'Wears on: the fault keeps growing, faster under load, heat and speed, so the RUL estimate has a trend to follow. This is an accelerated demo progression, not a life model.'
                   : 'Gradual onset ramps over 120 simulated seconds.'}{' '}
                 All values are demo calibration.
               </p>

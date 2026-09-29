@@ -85,6 +85,10 @@ function DrawerBody({ id, onClose }: { id: BindingId; onClose: () => void }) {
           All equations →
         </Button>
       </div>
+      <p className="num m-0 border-b border-line px-8 py-4 text-label leading-relaxed text-fg-3">
+        This is the Twin&apos;s expected-value chain: its result is the white Twin marker on the
+        gauge, and the gap to the measured value is the evidence.
+      </p>
       <div className="px-8 py-8">
         <Suspense fallback={<p className="num text-fg-3">Loading KaTeX…</p>}>
           <MathView id={id} snapshot={held ?? live} />

@@ -113,7 +113,9 @@ export function DataSourcePanel() {
         The recording holds the last 30 simulated minutes at 20 Hz. Replaying it reproduces the
         diagnosis. ESP32: 115,200 baud, one JSON object per line using the telemetry field names
         (rpm, load, coolantC, oilC, oilPressBar, busV). OBD-II: USB ELM327, mode-01 PIDs 0C, 04, 05,
-        0F, 42.
+        0F, 42. OBD-II approximations: calculated load is used as the load fraction and intake-air
+        temperature as the ambient temperature; both are adapter approximations, not measured brake
+        torque or outside air.
       </p>
     </Panel>
   );
